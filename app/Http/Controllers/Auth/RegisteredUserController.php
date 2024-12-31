@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Mail\AccountActivation;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+
 
 class RegisteredUserController extends Controller
 {
@@ -40,12 +44,19 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'activation_token' => Str::random(32), // Gerar o token de ativação
         ]);
 
         event(new Registered($user));
 
+
+
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        Mail::to($user->email)->send(new AccountActivation($user));
+
+        return redirect()->route('dashboard')->with('success', 'Usuário registrado com sucesso, Confirme seu e-mail para ativar sua conta.');
+        // return response()->json(['message' => 'Confirme seu e-mail para ativar sua conta.']);
+        // return redirect(route('dashboard', absolute: false));
     }
 }
