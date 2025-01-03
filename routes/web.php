@@ -5,6 +5,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\ActivationController;
+use App\Http\Controllers\Auth\TokenLoginController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -19,18 +20,19 @@ Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::get('/activate-account/{token}', [ActivationController::class, 'activate'])->name('activate.account');
+// Route::get('/activate-account/{token}', [ActivationController::class, 'activate'])->middleware(['auth', 'verified'])->name('activate.account');
+Route::get('/activate-account/{token}', [ActivationController::class, 'loginWithToken'])->middleware(['auth', 'verified'])->name('activate.account');
+Route::get('/login/token/{token}', [TokenLoginController::class, 'loginWithToken'])->name('login.token');
 
-Route::get('/teste-email', function () {
-    $email = 'rafaelhlessa@gmail.com'; // Substitua pelo email do destinatário
+Route::get('/regist', function () {
+        return Inertia::render('RegisterStep1');
+    })->name('regist');
 
-    Mail::raw('Este é um email de teste!', function ($message) use ($email) {
-        $message->to($email)
-                ->subject('Teste de Email');
+Route::middleware(['auth', 'can:active-user'])->group(function () {
+    Route::get('/dashboard', function () {
+        return Inertia::render('Dashboard');
+    })->name('dashboard');
     });
-
-    return 'Email enviado com sucesso!';
-});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

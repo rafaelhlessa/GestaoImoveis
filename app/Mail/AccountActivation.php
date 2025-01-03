@@ -23,7 +23,8 @@ class AccountActivation extends Mailable
                     ->view('emails.activate-account')
                     ->with([
                         'user' => $this->user,
-                        'activationLink' => url('/activate-account/' . $this->user->activation_token),
+                        'activationLink' => url('/login/token/' . $this->user->activation_token),
+                        // 'activationLink' => url('/activate-account/' . $this->user->activation_token),
                     ]);
     }
 }

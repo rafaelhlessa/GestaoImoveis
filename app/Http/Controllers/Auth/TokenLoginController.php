@@ -1,31 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
-class ActivationController extends Controller
+class TokenLoginController extends Controller
 {
-    public function activate($token)
-    {
-
-        $user = User::where('activation_token', $token)->first();
-
-
-        if (!$user) {
-            return response()->json(['message' => 'Token inválido ou expirado.'], 404);
-        }
-
-        $user->update([
-            'activation_token' => null,
-            'email_verified_at' => now(),
-        ]);
-
-        return redirect()->route('profile.update');
-        // return response()->json(['message' => 'Conta ativada com sucesso!']);
-    }
-
     public function loginWithToken($token)
     {
         // Localiza o usuário pelo token
@@ -45,3 +28,4 @@ class ActivationController extends Controller
         return redirect()->route('dashboard')->with('status', 'Login realizado com sucesso!');
     }
 }
+
