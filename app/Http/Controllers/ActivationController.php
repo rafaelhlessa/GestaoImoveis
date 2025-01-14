@@ -22,7 +22,7 @@ class ActivationController extends Controller
             'email_verified_at' => now(),
         ]);
 
-        return redirect()->route('profile.update');
+        return redirect()->route('dashboard');
         // return response()->json(['message' => 'Conta ativada com sucesso!']);
     }
 

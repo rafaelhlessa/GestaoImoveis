@@ -13,19 +13,20 @@ return new class extends Migration
     {
         Schema::create('properties', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('owner_id')->constrained('users')->onDelete('cascade');
-            $table->string('property_name');
-            $table->string('cpf_cnpj');
-            $table->string('title_deed');
-            $table->string('deed_registry')->nullable();
-            $table->string('transcription')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->integer('type_property');
+            $table->integer('title_deed');
+            $table->string('title_deed_number')->nullable();
             $table->string('other')->nullable();
-            $table->string('state');
-            $table->string('city');
-            $table->string('district');
-            $table->string('locality');
-            $table->string('nickname')->nullable();
             $table->string('area')->nullable();
+            $table->string('unit')->nullable();
+            $table->string('city');
+            $table->integer('city_id');
+            $table->string('district')->nullable();
+            $table->string('locality')->nullable();
+            $table->string('nickname')->nullable();
+            $table->text('about')->nullable();
+            $table->longText('file_photo')->nullable();
             $table->timestamps();
         });
     }

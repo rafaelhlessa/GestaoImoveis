@@ -44,6 +44,7 @@ class RegisteredUserController extends Controller
             'address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'city_id' => 'required|integer',
+            'profile_id' => 'required|integer',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
@@ -55,6 +56,7 @@ class RegisteredUserController extends Controller
             'address' => $request->address,
             'city' => $request->city,
             'city_id' => $request->city_id,
+            'profile_id' => $request->profile_id,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'activation_token' => Str::random(32), // Gerar o token de ativação
@@ -62,13 +64,8 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        // Auth::login($user);
-
         Mail::to($user->email)->send(new AccountActivation($user));
 
-        // return redirect()->route('/')->with('success', 'Usuário registrado com sucesso, Confirme seu e-mail para ativar sua conta.');
-        // return response()->json(['message' => 'Confirme seu e-mail para ativar sua conta.']);
-        // return redirect(route('/', absolute: false));
         return Redirect::to('/');
     }
 }

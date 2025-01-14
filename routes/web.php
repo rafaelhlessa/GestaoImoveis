@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\ActivationController;
 use App\Http\Controllers\Auth\TokenLoginController;
+use App\Http\Controllers\PropertyController;
+use App\Http\Controllers\AuthorizationController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -24,15 +26,17 @@ Route::get('/dashboard', function () {
 Route::get('/activate-account/{token}', [ActivationController::class, 'loginWithToken'])->middleware(['auth', 'verified'])->name('activate.account');
 Route::get('/login/token/{token}', [TokenLoginController::class, 'loginWithToken'])->name('login.token');
 
-Route::get('/regist', function () {
-        return Inertia::render('RegisterStep1');
-    })->name('regist');
+Route::middleware(['auth'])->group(function () {
+    Route::resource('authorizations', AuthorizationController::class);
+});
 
-Route::middleware(['auth', 'can:active-user'])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
-    });
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::resource('property', PropertyController::class);
+});    
+
+Route::get('regi', function () {
+    return Inertia::render('RegisterNew');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

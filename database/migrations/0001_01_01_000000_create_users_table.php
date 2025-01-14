@@ -21,9 +21,10 @@ return new class extends Migration
             $table->string('address')->nullable();
             $table->string('city')->nullable();
             $table->integer('city_id')->nullable();
-            $table->enum('type', ['proprietario', 'administrador', 'suporte'])->nullable();
+            $table->integer('profile_id');
             $table->string('password');
-            $table->boolean('is_active')->nullable()->default(false);
+            $table->boolean('is_active')->default(false);
+            $table->boolean('is_admin')->default(false);
             $table->rememberToken();
             $table->timestamps();
         });

@@ -23,6 +23,7 @@
         "@heroicons/vue": "^2.2.0",
         "jquery": "^3.7.1",
         "tailwind-styled-components": "^2.2.0",
+        "tippy.js": "^6.3.7",
         "vue3-select2-component": "^0.1.7"
     }
 }

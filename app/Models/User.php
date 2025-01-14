@@ -6,6 +6,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class User extends Authenticatable
 {
@@ -22,7 +28,7 @@ class User extends Authenticatable
         'cpf_cnpj',
         'email',
         'phone',
-        'address',
+        'profile_id',
         'city',
         'city_id',
         'type',
@@ -30,6 +36,11 @@ class User extends Authenticatable
         'is_active',
         'activation_token',
         'login_token'
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'profile_id' => 'integer',
     ];
 
     /**
@@ -54,4 +65,57 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    // Autorizações concedidas (Proprietário concede para prestadores)
+    public function givenAuthorizations(): HasMany
+    {
+        return $this->hasMany(Authorization::class, 'owner_id');
+    }
+
+    // Autorizações recebidas (Prestador recebe dos proprietários)
+    public function receivedAuthorizations(): HasMany
+    {
+        return $this->hasMany(Authorization::class, 'service_provider_id');
+    }
+
+    // Verificar se um prestador tem permissão para ver documentos de um proprietário
+    public function canViewDocumentsFrom(User $owner): bool
+    {
+        return $this->receivedAuthorizations()
+            ->where('owner_id', $owner->id)
+            ->where('can_view_documents', true)
+            ->exists();
+    }
+
+    // Verificar se um prestador pode criar propriedades para um proprietário
+    public function canCreatePropertiesFor(User $owner): bool
+    {
+        return $this->receivedAuthorizations()
+            ->where('owner_id', $owner->id)
+            ->where('can_create_properties', true)
+            ->exists();
+    }
+
+    public function properties(): BelongsToMany
+    {
+        return $this->belongsToMany(Property::class, 'property_user', 'user_id', 'property_id');
+    }
+
+    // public function typeOwnerships()
+    // {
+    //     return $this->belongsToMany(TypeOwnership::class, 'property_user', 'type_ownership_id', 'user_id');
+    // }
+
+    public function typeOwnership(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            TypeOwnership::class,
+            PropertyUser::class,
+            'user_id', // Chave estrangeira em property_user referenciando User
+            'id', // Chave primária em type_ownership
+            'id', // Chave primária em User
+            'type_ownership_id' // Chave estrangeira em property_user referenciando type_ownership
+        );
+    }
+
 }

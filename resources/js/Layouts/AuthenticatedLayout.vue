@@ -39,6 +39,14 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Dashboard
                                 </NavLink>
+
+                                <NavLink
+                                    v-if="$page.props.auth.user.profile_id != 2"
+                                    :href="route('property.index')"
+                                    :active="route().current('property.index')"
+                                >
+                                    Propriedades
+                                </NavLink>
                             </div>
                         </div>
 
@@ -71,17 +79,22 @@ const showingNavigationDropdown = ref(false);
                                     </template>
 
                                     <template #content>
+                                        <DropdownLink v-if="$page.props.auth.user.profile_id != 2"
+                                            :href="route('authorizations.index')"
+                                        >
+                                            Autorizações
+                                        </DropdownLink>
                                         <DropdownLink
                                             :href="route('profile.edit')"
                                         >
-                                            Profile
+                                            Perfil
                                         </DropdownLink>
                                         <DropdownLink
                                             :href="route('logout')"
                                             method="post"
                                             as="button"
                                         >
-                                            Log Out
+                                            Sair
                                         </DropdownLink>
                                     </template>
                                 </Dropdown>
