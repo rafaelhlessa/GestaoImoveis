@@ -21,27 +21,22 @@ class PropertyController extends Controller
     public function index()
     {
 
-        if (auth()->user()->profile_id === 2) {
-            $authorizedProperties = Authorization::where('service_provider_id', auth()->id())
-                ->where('can_view_documents', true)
-                ->pluck('owner_id');
-                $ownerIds = PropertyUser::whereIn('user_id', $authorizedProperties)->pluck('property_id');
-                $properties = Property::whereIn('id', $ownerIds)->get();
+        $user = auth()->user();
 
-                return Inertia::render('Properties/IndexProperty', [
-                    'properties' => $properties,
-                    // 'properties' => Property::where('owner_id', auth()->user()->id)->get()
-                ]);
+        if ($user->profile_id === 2) { // Prestador de Serviço
+            $properties = Property::whereHas('owners', function ($query) use ($user) {
+                $query->whereIn('user_id', Authorization::where('service_provider_id', $user->id)
+                    ->where('can_view_documents', true)
+                    ->pluck('owner_id'));
+            })->with('owners')->get();
         } else {
-            $properties = Property::whereHas('owners', function ($query) {
-                $query->where('user_id', auth()->id());
-            })->get();
-            return Inertia::render('Properties/IndexProperty', [
-                'properties' => $properties,
-                // 'properties' => Property::where('owner_id', auth()->user()->id)->get()
-            ]);
+            // Usuário comum vê apenas suas propriedades
+            $properties = Property::whereHas('owners', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })->with('owners')->get();
         }
 
+        return Inertia::render('Properties/IndexProperty', ['properties' => $properties]);
         
     }
 
@@ -50,11 +45,9 @@ class PropertyController extends Controller
      */
     public function create()
     {        
-        $typeOwner = TypeOwnership::all();
-
         return Inertia::render('Properties/CreateProperty', [
             'typeOwners' => TypeOwnership::all(),
-            'users' => User::where('profile_id', '!=', 2)->get(),
+            'users' => User::where('profile_id', '!=', 2)->select('id', 'name')->get(),
             'propertyUser' => PropertyUser::all(),
         ]); 
     }
@@ -65,8 +58,7 @@ class PropertyController extends Controller
     public function store(Request $request)
     {
 
-        // dd($request->all());
-        $request->validate([
+        $validated = $request->validate([
             'is_active' => 'required|boolean',
             'title_deed' => 'required|integer',
             'title_deed_number' => 'required|string|max:255',
@@ -75,68 +67,49 @@ class PropertyController extends Controller
             'type_property' => 'required|integer',
             'city' => 'required|string|max:255',
             'city_id' => 'required|integer',
-            // 'file_photo' => 'required|file|mimes:jpg,jpeg,png|max:2048',
-
-            // 'documents' => 'required|array',
-            // 'documents.*' => 'file|mimes:pdf,jpg,jpeg,png|max:2048',
-
             'owners' => 'required|array',
             'owners.*.id' => 'required|integer',
             'owners.*.type_ownership' => 'required|integer',
             'owners.*.percent' => 'required|integer',
-
         ]);
+    
+        $propertyId = null;
 
-
-        // DB::transaction(function () use ($request) {
-            $property = Property::create([
-                'title_deed' => $request->title_deed,
-                'title_deed_number' => $request->title_deed_number,
-                'type_property' => $request->type_property,
-                'other' => $request->other,
-                'area' => $request->area,
-                'unit' => $request->unit,
-                'city' => $request->city,
-                'city_id' => $request->city_id,
-                'district' => $request->district,
-                'locality' => $request->locality,
-                'nickname' => $request->nickname,
-                'about' => $request->about,
-                'file_photo' => $request->file_photo,
-            ]);
-
-            // $property = Property::create($request->all());
-            // $property->file_photo = $request->file_photo->store('properties', 'public');
-            
-
-            foreach ($request->documents as $document) {
-                if ($document['date'] === "Sem Data") {
-                    $document['date'] = null;
-                }
-                PropertyDocument::create([
-                    'name' => $document['name'],
-                    'date' => $document['date'],
-                    'show' => $document['show'],
-                    'file' => $document['file'],
-                    'file_name' => $document['file_name'],
+        DB::transaction(function () use ($validated, $request, & $propertyId) {
+            $property = Property::create($validated);
+    
+            // 🔄 Inserindo Documentos em Massa
+            $documents = collect($request->documents)->map(function ($doc) use ($property) {
+                return [
+                    'name' => $doc['name'],
+                    'date' => $doc['date'] === "Sem Data" ? null : $doc['date'],
+                    'show' => $doc['show'],
+                    'file' => $doc['file'],
+                    'file_name' => $doc['file_name'],
                     'property_id' => $property->id,
-                ]);
-            }
-
-            foreach ($request->owners as $owner) {
-                PropertyUser::create([
+                ];
+            })->toArray();
+    
+            PropertyDocument::insert($documents);
+    
+            // 🔄 Inserindo Proprietários em Massa
+            $owners = collect($request->owners)->map(function ($owner) use ($property) {
+                return [
                     'user_id' => $owner['id'],
                     'type_ownership_id' => $owner['type_ownership'],
                     'percentage' => $owner['percent'],
                     'other' => $owner['observations'],
                     'property_id' => $property->id,
-                ]);
-            }
-        // });
+                ];
+            })->toArray();
+    
+            PropertyUser::insert($owners);
 
-        
-        
-        return redirect()->route('property.show', $property->id)->with('success', 'Property created successfully.');
+            $propertyId = $property->id;
+
+        });
+    
+        return redirect()->route('property.show', $propertyId)->with('success', 'Propriedade criada com sucesso.');
     }
 
     /**
@@ -145,36 +118,60 @@ class PropertyController extends Controller
     public function show(string $id)
     {
         $user = auth()->user();
-        $property = Property::find($id);
 
+        // 🔹 Busca a propriedade e verifica se existe
+        $property = Property::with(['owners', 'documents'])->find($id);
+
+        $canEdit = false;
+        
         if (!$property) {
             abort(404, 'Propriedade não encontrada.');
         }
 
-        $query = PropertyUser::where('property_id', $id);
+        // 🔹 Se o usuário for proprietário, pode acessar diretamente
+        if ($user->profile_id == 1) {
+            $hasAccess = PropertyUser::where('property_id', $id)
+                ->where('user_id', $user->id)
+                ->exists();
+        } 
+        // 🔹 Se for prestador de serviço, verifica as autorizações
+        elseif ($user->profile_id == 2) {
+            $hasAccess = Authorization::where('service_provider_id', $user->id)
+            ->where('can_view_documents', true)
+            ->whereHas('owner.properties', function ($query) use ($id) {
+                $query->where('properties.id', $id); // 🛠 Especificamos a tabela properties
+            })
+            ->exists();
 
-        if ($user->profile_id == 1) { // Proprietário pode acessar suas propriedades
-            $query->where('user_id', $user->id);
-        } elseif ($user->profile_id == 3) { // Proprietário e Prestador de Serviço
-            $query->where('user_id', $user->id)
-                ->orWhereExists(function ($subQuery) use ($user, $property) {
-                    $subQuery->select(DB::raw(1))
-                        ->from('authorizations')
-                        ->whereColumn('authorizations.owner_id', 'property_user.user_id')
-                        ->where('authorizations.service_provider_id', $user->id)
-                        ->where('authorizations.can_view_documents', true);
-                });
-        } else {
+            $canEdit = $user->profile_id === 2 && Authorization::where('service_provider_id', $user->id)
+                // ->where('can_view_documents', true)
+                ->where('can_create_properties', true)
+                ->exists();
+            
+        } 
+        // 🔹 Se for outro tipo de usuário, verifica permissões adicionais
+        else {
+            $hasAccess = Authorization::where('service_provider_id', $user->id)
+            ->where('can_view_documents', true)
+            ->whereHas('owner.properties', function ($query) use ($id) {
+                $query->where('properties.id', $id); // 🛠 Especificamos a tabela properties
+            })
+            ->exists();
+        }
+
+        // 🔹 Se o usuário não tem acesso, retorna erro 403
+        if (!$hasAccess) {
             abort(403, 'Acesso não autorizado.');
         }
 
-        $owners = $query->get();
-
+        // 🔹 Retorna a propriedade com os dados necessários
         return Inertia::render('Properties/ShowProperty', [
             'property' => $property,
-            'documents' => PropertyDocument::where('property_id', $id)->get(),
-            'owners' => $owners,
+            'documents' => $property->documents,
+            'owners' => $property->owners,
             'success' => session('success'),
+            'isServiceProvider' => $user->profile_id === 2,
+            'canEdit' => $canEdit,
         ]);
     }
 
@@ -326,5 +323,21 @@ class PropertyController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+
+    /**
+     * Update the 'show' field of a document.
+     */
+    public function updateDocumentShow(Request $request, string $documentId)
+    {
+        
+        $request->validate([
+            'show' => 'required|boolean',
+        ]);
+
+        $document = PropertyDocument::findOrFail($documentId);
+        $document->update(['show' => $request->show]);
+
+        return redirect()->back()->with('success', 'Document visibility updated successfully.');
     }
 }

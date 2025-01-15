@@ -11,9 +11,11 @@ class AuthorizationController extends Controller
 {
     public function index()
     {
+        return Inertia::render('Authorizations/IndexAuthorization');
         if (auth()->user()->profile_id != 2) {
             $authorizations = Authorization::where('service_provider_id', auth()->id())->get();
         } else {
+            
             $authorizations = Authorization::with(['owner', 'serviceProvider'])->get();
             return Inertia::render('Authorizations/IndexAuthorization', ['authorizations' => $authorizations]);
         }

@@ -45,6 +45,8 @@ const props = defineProps({
     documents: Array,
     owners: Array,
     success: String,
+    authorization: Object,
+    canEdit: Boolean,
 });
 
 const getImageSrc = (base64Data) => {
@@ -68,6 +70,24 @@ const getDocSrc = (base64Data) => {
 const goToPropriety = (id) => {
   router.get(route('property.edit', id));
 };
+
+const showModalDocumentShow = ref(false);
+
+const documentShow = (id) => {
+    console.log(props.canEdit);
+    // router.patch(route('property.updateDocument', id), {
+    //     show: !props.documents.find(doc => doc.id === id).show
+    // });
+    // showModalDocumentShow.value = false;
+};
+
+onMounted(() => {
+    // console.log(props.documents);
+    // console.log(props.owners);
+    // console.log(props.property);
+    // console.log(props.authorization);
+    console.log(props.canEdit);
+});
 
 </script>
 
@@ -162,10 +182,25 @@ const goToPropriety = (id) => {
                                                                     <tbody class="divide-y divide-gray-200 bg-white">
                                                                         <tr>
                                                                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ detail.name }}</td>
-                                                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500" v-tooltip="'Vencimento do documento'">{{ detail.date === null ? "Sem Data" : new Date(detail.date).toLocaleDateString('pt-BR') }}</td>
-                                                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500" v-tooltip="'Documento Visível'">{{ detail.show === 1 ? "Visível" : "Não Visível" }}</td>
+                                                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" v-tooltip="'Vencimento do documento'">{{ detail.date === null ? "Sem Data" : new Date(detail.date).toLocaleDateString('pt-BR') }}</td>
+                                                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" v-tooltip.top-start="'Clique para mudar a visibilidade do documento'">
+                                                                            <button @click="showModalDocumentShow = true" class="focus:outline-indigo-600">
+                                                                                <span v-if="detail.show === 1" class="inline-flex items-center gap-x-1.5 rounded-md bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                                                                                    <svg class="size-1.5 fill-green-500" viewBox="0 0 6 6" aria-hidden="true">
+                                                                                        <circle cx="3" cy="3" r="3" />
+                                                                                    </svg>
+                                                                                    Visível
+                                                                                </span>
+                                                                                <span v-else class="inline-flex items-center gap-x-1.5 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                                                                                    <svg class="size-1.5 fill-red-500" viewBox="0 0 6 6" aria-hidden="true">
+                                                                                        <circle cx="3" cy="3" r="3" />
+                                                                                    </svg>
+                                                                                    Não Visível
+                                                                                </span>
+                                                                            </button>
+                                                                        </td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                                            <div class="flex items-center space-x-2">
+                                                                            <div class="flex items-center space-x-2" v-if="props.canEdit === 1" >
                                                                                 <a :href="getDocSrc(detail.file)" download :download="detail.file_name" v-tooltip="'Baixar documento'">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                                                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
@@ -176,6 +211,32 @@ const goToPropriety = (id) => {
                                                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                                                                                         </svg>
                                                                                 </a> -->
+                                                                                
+                                                                                
+                                                                                <!-- Modal Visualização Documento-->
+
+                                                                                <transition name="showModalDocumentShow">
+                                                                                    <div v-if="showModalDocumentShow" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                                                                                        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
+                                                                                            <h3 class="text-lg font-medium text-gray-900 mb-4">Tornar documento visível?</h3>
+                                                                                            <div>
+                                                                                                <div class="mb-4">
+                                                                                                    <h3>Tornar o arquivo visível para prestadores de serviço?</h3>
+                                                                                                </div>
+                                                                                                
+                                                                                                <div class="flex justify-end">
+                                                                                                    <button @click="showModalDocumentShow = false" class="mr-2 rounded-md bg-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 shadow-xs hover:bg-gray-400">
+                                                                                                        Não
+                                                                                                    </button>
+                                                                                                    
+                                                                                                    <button @click="documentShow(detail.id)" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500">
+                                                                                                        Sim
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </transition>
                                                                             </div>
                                                                         </td>
                                                                         </tr>

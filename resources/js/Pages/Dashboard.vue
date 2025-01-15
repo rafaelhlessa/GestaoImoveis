@@ -3,6 +3,19 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/vue'
 import { EllipsisHorizontalIcon } from '@heroicons/vue/20/solid'
+import { onMounted } from 'vue';
+import { usePage, router } from '@inertiajs/vue3';
+// import { useRouter } from 'vue-router';
+
+const { props } = usePage();
+// const router = useRouter();
+
+onMounted(() => {
+    if (props.auth.user.profile_id > 1) {
+        router.get(route('providers.index'));
+        // router.get({ name: 'service-provider.index' });
+    }
+});
 
 const statuses = {
   Paid: 'text-green-700 bg-green-50 ring-green-600/20',

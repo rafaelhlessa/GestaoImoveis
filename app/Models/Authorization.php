@@ -16,6 +16,18 @@ class Authorization extends Model
         'can_create_properties',
     ];
 
+    public function properties()
+{
+    return $this->hasManyThrough(
+        Property::class,      // Model final (Propriedade)
+        PropertyUser::class,  // Model pivot intermediária
+        'user_id',            // FK em PropertyUser que referencia o owner_id
+        'id',                 // PK da Property
+        'owner_id',           // FK na tabela Authorization que referencia o User
+        'property_id'         // FK na PropertyUser que referencia a Property
+    );
+}
+
     // Relacionamento: Dono da propriedade (proprietário)
     public function owner()
     {
