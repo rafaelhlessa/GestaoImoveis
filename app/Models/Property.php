@@ -37,4 +37,16 @@ class Property extends Model
     {
         return $this->hasMany(PropertyDocument::class, 'property_id');
     }
+
+    public function authorizations()
+    {
+        return $this->hasManyThrough(
+            Authorization::class, // Model final (Authorization)
+            PropertyUser::class,  // Model intermediária (pivot)
+            'property_id',        // FK na PropertyUser que referencia a Property
+            'owner_id',           // FK na Authorization que referencia o User
+            'id',                 // PK da Property
+            'user_id'             // FK na PropertyUser que referencia o Owner(User)
+        );
+    }
 }

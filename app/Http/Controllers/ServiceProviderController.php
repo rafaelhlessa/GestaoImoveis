@@ -13,15 +13,28 @@ class ServiceProviderController extends Controller
      */
     public function index()
     {
-        // $serviceProviders = 
-        // $serviceProviders = Authorization::with('owner')->get();
-        $serviceProviderId = auth()->user()->id;
-        $serviceProviders = Authorization::where('service_provider_id', $serviceProviderId)
-            ->with('owner')
-            ->get();
+        $user = auth()->user();
         
-        return Inertia::render('Teste/Teste', ['serviceProviders' => $serviceProviders]);
-        // return Inertia::render('ServiceProvider/ServiceProviderIndex', ['serviceProviders' => $serviceProviders]);
+        if($user->profile_id === 2 || $user->profile_id === 3) {
+            $serviceProviderId = auth()->user()->id;
+            
+            $serviceProviders = Authorization::where('service_provider_id', $serviceProviderId)
+                ->with('owner')
+                ->get();
+            
+            $owners = [];
+            foreach ($serviceProviders as $serviceProvider) {
+                if ($serviceProvider->can_create_properties || $serviceProvider->can_view_documents) {
+                    $owners[] = $serviceProvider->owner;
+                }
+            }
+
+            return Inertia::render('DashboardService', ['serviceProviders' => $owners]);
+            
+        } else {
+            return Inertia::render('Dashboard');
+        }
+        
     }
 
     /**

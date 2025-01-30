@@ -145,7 +145,9 @@ watch(
 </script>
 
 <template>
+    <div class="w-full">
     <section>
+        
         <header>
             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                 Informações do Usuário
@@ -158,8 +160,9 @@ watch(
 
         <form
             @submit.prevent="profileForm.patch(route('profile.update'))"
-            class="mt-6 space-y-6"
+            class="mt-6"
         >
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
                 <InputLabel for="name" value="Nome" />
 
@@ -328,6 +331,9 @@ watch(
                     </p>
                 </Transition>
             </div>
+        </div>    
         </form>
+        
     </section>
+    </div>
 </template>

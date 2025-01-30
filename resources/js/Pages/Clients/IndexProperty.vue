@@ -2,12 +2,23 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { reactive, ref, onMounted, watch, defineProps, computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+
+const { props: pageProps } = usePage();
+const userId = pageProps.auth.user.id;
 
 const props = defineProps({
-    authorized: Boolean,
-    properties: Object, // Recebe os dados da propriedade para edição
+    // authorized: Boolean,
+    // owner: Array,
+    properties: Object, 
+    owner: Object,
+    canView: Boolean,
+    canCreate: Object // Exemplo: { can_create: true, owners: [1, 2, 3] }
 
 });
+
+
+
 const getTitleDeedText = (titleDeed) => {
     const mapping = {
         1: 'Matrícula',
@@ -26,12 +37,46 @@ const getImageSrc = (base64Data) => {
         : `data:image/jpeg;base64,${base64Data}`; // Ajuste conforme o tipo de imagem (jpeg/png)
 };
 
+const owner = ref(null);
+
+const canCreateProperties = ref('');
+
+const checkAuthorization = () => {
+    if (props.properties) {
+
+        
+    
+    }
+};
+const test = ref([])
+const canCreate = computed(() => {
+    props.owner
+});
+
+watch(() => props.properties, checkAuthorization, { immediate: true });
+
+// const ownerNames = computed(() => {
+//     if (!props.owner || props.owner.length === 0) {
+//         return 'Sem proprietário'; // Mensagem padrão caso não tenha dono
+//     }
+//     return props.owner.map(o => o.name).join(' - '); // Junta os nomes separados por " - "
+// });
+
+onMounted(() => {
+    // fetchOwner();
+    // console.log(canCreateProperties.value)
+    console.log(props.owner)
+    console.log(props.properties)
+    // console.log(props.canCreate.can_create)
+    // checkAuthorization();
+});
+
 const newPropriety = () => {
     router.get(route('property.create'));
 }
 
 const goToPropriety = (id) => {
-  router.get(route('property.show', id));
+  router.get(route('clients.show', id));
 };
 </script>
 <template>
@@ -40,12 +85,23 @@ const goToPropriety = (id) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <h1 class="text-2xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                    Lista de Propriedades
-                </h1>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div class="flex justify-start">
+                    <h1 class="text-2xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                    Propriedades do Cliente  
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 inline">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+
+                    </h1>
+                </div>
+                <div class="flex justify-center">
+                    <span class="inline-flex items-center gap-x-1.5 rounded-md px-2 py-1 text-lg font-medium text-white ring-1 ring-inset ring-gray-200">
+                        {{ props.owner.name }}
+                    </span>
+                </div>
                 <div class="flex justify-end">
-                    <button v-if="authorized = true" @click="newPropriety" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <button v-if="props.canCreate.can_create === true" @click="newPropriety" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Adicionar Propriedade
                     </button>
                 </div>
@@ -59,7 +115,7 @@ const goToPropriety = (id) => {
                         <div class="bg-white rounded-lg shadow">
                             <ul role="list"
                                 class="px-6 py-6 grid grid-cols-4 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-8">
-                                <li v-for="file in properties" :key="file.source" class="relative border border-gray-200 rounded-lg p-4">
+                                <li v-for="file in properties" :key="file.id" class="relative border border-gray-200 rounded-lg p-4">
                                     <div
                                         class="group overflow-hidden rounded-lg bg-gray-100 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 focus-within:ring-offset-gray-100">
                                         <img :src="getImageSrc(file.file_photo)" alt="" class="pointer-events-none aspect-[10/7] h-auto w-full object-cover group-hover:opacity-75" />

@@ -142,25 +142,57 @@ watch(
 // Estado para controlar a exibição do modal
 const showModal = ref(false);
 
+// const submit = () => {
+//     const sanitizeValue = (value) => value.replace(/\D/g, ''); // Remove todos os caracteres não numéricos
 
+//     form.cpf_cnpj = sanitizeValue(form.cpf_cnpj);
+//     form.phone = sanitizeValue(form.phone);
 
-const submit = () => {
-    const sanitizeValue = (value) => value.replace(/\D/g, ''); // Remove todos os caracteres não numéricos
+//     if (!form.name || !form.cpf_cnpj || !form.phone || !form.profile_id || !form.address || !form.city || !form.email || !form.password || !form.password_confirmation) {
+//         form.message = 'Preencha todos os campos obrigatórios.';
+//     }
 
-    form.cpf_cnpj = sanitizeValue(form.cpf_cnpj);
-    form.phone = sanitizeValue(form.phone);
+//     form.post(route('register'), {
+//         onFinish: () => {
+//             form.reset('password', 'password_confirmation'),
+//                 form.cpf_cnpj = ''; // Restaura o campo mascarado, se necessário
+//             form.phone = '';    // Restaura o campo mascarado, se necessário
+//         }
+//     });
+// };
 
-    if (!form.name || !form.cpf_cnpj || !form.phone || !form.profile_id || !form.address || !form.city || !form.email || !form.password || !form.password_confirmation) {
-        form.message = 'Preencha todos os campos obrigatórios.';
+const message = ref('');
+
+const openModal = () => {
+    // Verifica se todos os campos obrigatórios foram preenchidos
+    if (!form.name || !sanitizedCpfCnpj.value || !sanitizedPhone.value || 
+        !form.profile_id || !form.address || !form.city || 
+        !form.email || !form.password || !form.password_confirmation) {
+        
+        message.value = 'Preencha todos os campos obrigatórios.';
+        return; // Impede a abertura do modal
     }
 
-    form.post(route('register'), {
-        onFinish: () => {
-            form.reset('password', 'password_confirmation'),
-                form.cpf_cnpj = ''; // Restaura o campo mascarado, se necessário
-            form.phone = '';    // Restaura o campo mascarado, se necessário
-        }
-    });
+    // Se tudo estiver correto, abre o modal
+    message.value = '';
+    showModal.value = true;
+};
+
+const submit = () => {
+    // Envia apenas quando o modal estiver aberto e sem erros
+    if (showModal.value && message.value === '') {
+        form.cpf_cnpj = sanitizedCpfCnpj.value;
+        form.phone = sanitizedPhone.value;
+
+        form.post(route('register'), {
+            onFinish: () => {
+                form.reset('password', 'password_confirmation');
+                form.cpf_cnpj = '';
+                form.phone = '';
+                showModal.value = false;
+            }
+        });
+    }
 };
 
 // Função para fechar o modal
@@ -290,10 +322,11 @@ const closeModal = () => {
                         </Link>
 
                         <!-- Botão "Salvar" alinhado à direita -->
-                        <button @click="showModal = true"
+                        <!-- <a @click="showModal = true"
                             class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
                             Salvar
-                        </button>
+                        </a> -->
+                        <PrimaryButton @click="openModal">Salvar</PrimaryButton>
 
                     </div>    
                     <!-- Modal -->
@@ -311,7 +344,7 @@ const closeModal = () => {
                                     class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                                     :disabled="form.processing">
                                     Cadastrar
-                            </button>
+                                </button>
                                 <button @click="closeModal" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-blue-600">
                                     Fechar
                                 </button>

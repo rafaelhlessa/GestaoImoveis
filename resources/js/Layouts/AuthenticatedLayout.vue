@@ -77,7 +77,7 @@ const showingNavigationDropdown = ref(false);
 
                                     <template #content>
                                         <DropdownLink v-if="$page.props.auth.user.profile_id != 2"
-                                            :href="route('authorizations.index')"
+                                            :href="route('authorizations.index', $page.props.auth.user.id)"
                                         >
                                             Autorizações
                                         </DropdownLink>

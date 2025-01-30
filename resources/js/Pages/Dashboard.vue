@@ -12,7 +12,7 @@ const { props } = usePage();
 
 onMounted(() => {
     if (props.auth.user.profile_id > 1) {
-        router.get(route('providers.index'));
+        router.get(route('propertyNew.index', props.auth.user.id));
         // router.get({ name: 'service-provider.index' });
     }
 });
@@ -27,19 +27,19 @@ const clients = [
   {
     id: 1,
     name: 'Proprietário',
-    imageUrl: 'https://tailwindui.com/plus/img/logos/48x48/tuple.svg',
+    imageUrl: '',
     lastInvoice: { total: '9', last_year: '12', status: '3' },
   },
   {
     id: 2,
     name: 'Arrendatário',
-    imageUrl: 'https://tailwindui.com/plus/img/logos/48x48/savvycal.svg',
+    imageUrl: '',
     lastInvoice: { total: '4', last_year: '0', status: '2' },
   },
   {
     id: 3,
     name: 'Parceria Agrícola',
-    imageUrl: 'https://tailwindui.com/plus/img/logos/48x48/reform.svg',
+    imageUrl: '',
     lastInvoice: { total: '4', last_year: '6', status: '1' },
   },
 ]
@@ -61,7 +61,6 @@ const clients = [
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800">
                     <div class="p-6 text-gray-900 dark:text-gray-100">
                         <div class="bg-white rounded-lg shadow">
-                            <h2 class="sr-only">Products</h2>
                             <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
                                 <ul role="list" class="grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-3 xl:gap-x-8">
                                     <li v-for="client in clients" :key="client.id"

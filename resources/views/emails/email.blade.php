@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Confirmação de E-mail</title>
 </head>
-<body style="margin: 10; padding: 5; background-color: #2D3748; font-family: Arial, sans-serif;">
-    <table width="100%" cellspacing="0" cellpadding="0" style="margin: 10; padding: 5;" >
+<body style="margin: 0; padding: 0; background-color: #2D3748; font-family: Arial, sans-serif;">
+    <table width="100%" cellspacing="0" cellpadding="0">
         <tr>
             <td align="center">
                 <table width="600px" style="background-color: #1A202C; padding: 20px; border-radius: 8px; text-align: center;">
                     
                     {{-- Logo Centralizado --}}
                     <tr>
-                        <td style="padding-bottom: 20px;"> 
-                            <img src="/storage/logo-sem fundo.png" alt="Logo da Empresa" width="150" style="border-radius: 8px;">
+                        <td style="padding-bottom: 20px; border-radius: 8px;"> 
+                            <img src="{{ asset('storage/logo.png') }}" alt="Logo da Empresa" width="150">
                         </td>
                     </tr>
 

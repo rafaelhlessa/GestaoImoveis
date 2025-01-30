@@ -20,16 +20,9 @@ Route::get('/', function () {
     ]);
 });
 
-// Route::middleware(['auth', ServiceProviderMiddleware::class])->get('/redirect', function () {
-    
-
-// });
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::resource('providers', ServiceProviderController::class);
+    
+    Route::get('/dashboard', [ServiceProviderController::class, 'index'])->name('dashboard');
 });
 
 // Route::get('/activate-account/{token}', [ActivationController::class, 'activate'])->middleware(['auth', 'verified'])->name('activate.account');
@@ -38,10 +31,17 @@ Route::get('/login/token/{token}', [TokenLoginController::class, 'loginWithToken
 
 Route::middleware(['auth'])->group(function () {
     Route::resource('authorizations', AuthorizationController::class);
+    Route::patch('authorizations/authorizations/{auth}', [AuthorizationController::class, 'updateAuthChange'])->name('authorizations.updateAuthChange'); //Route PATCH to update the authorization change status
 });
+
+Route::get('/view-email/activate-account', function () {
+    return view('emails.email');
+})->name('view.email.activate-account');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('property', PropertyController::class);
+    Route::get('propertyNew/{id?}', [PropertyController::class, 'clientsProperty'])->name('clients.property');
+    Route::get('propertyShow/{id?}', [PropertyController::class, 'clientShow'])->name('clients.show');
     Route::patch('property/property/{document}', [PropertyController::class, 'updateDocumentShow'])->name('property.updateDocument'); //Route PATCH to update the document show status
 });    
 

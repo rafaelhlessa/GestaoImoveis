@@ -22,7 +22,13 @@ class ActivationController extends Controller
             'email_verified_at' => now(),
         ]);
 
-        return redirect()->route('dashboard');
+        if($user->profile_id === 2) {
+            return redirect()->route('providers.index')->with('status', 'Login realizado com sucesso!');
+        } else {    
+            return redirect()->route('dashboard')->with('status', 'Login realizado com sucesso!');
+        }
+
+        // return redirect()->route('dashboard');
         // return response()->json(['message' => 'Conta ativada com sucesso!']);
     }
 
@@ -41,7 +47,12 @@ class ActivationController extends Controller
         // Realiza o login do usuário
         Auth::login($user);
 
+        if($user->profile_id === 2) {
+            return redirect()->route('providers.index')->with('status', 'Login realizado com sucesso!');
+        } else {    
+            return redirect()->route('dashboard')->with('status', 'Login realizado com sucesso!');
+        }
         // Redireciona para o dashboard ou outra página protegida
-        return redirect()->route('dashboard')->with('status', 'Login realizado com sucesso!');
+        // return redirect()->route('dashboard')->with('status', 'Login realizado com sucesso!');
     }
 }

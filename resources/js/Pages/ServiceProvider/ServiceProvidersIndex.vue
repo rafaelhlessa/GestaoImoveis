@@ -9,27 +9,6 @@ const statuses = {
   Withdraw: 'text-gray-600 bg-gray-50 ring-gray-500/10',
   Overdue: 'text-red-700 bg-red-50 ring-red-600/10',
 }
-
-const clients = [
-  {
-    id: 1,
-    name: 'Proprietário',
-    imageUrl: 'https://tailwindui.com/plus/img/logos/48x48/tuple.svg',
-    lastInvoice: { total: '9', last_year: '12', status: '3' },
-  },
-  {
-    id: 2,
-    name: 'Arrendatário',
-    imageUrl: 'https://tailwindui.com/plus/img/logos/48x48/savvycal.svg',
-    lastInvoice: { total: '4', last_year: '0', status: '2' },
-  },
-  {
-    id: 3,
-    name: 'Parceria Agrícola',
-    imageUrl: 'https://tailwindui.com/plus/img/logos/48x48/reform.svg',
-    lastInvoice: { total: '4', last_year: '6', status: '1' },
-  },
-]
 </script>
 
 <template>

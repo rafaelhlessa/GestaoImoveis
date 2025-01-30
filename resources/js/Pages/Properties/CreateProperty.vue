@@ -39,14 +39,33 @@ const selectedOwner = ref({ id: null, name: "", cpf_cnpj: "", percent: "", type_
 const filteredUsers = ref([]);
 
 // Função para buscar proprietários pelo CPF/CNPJ
+// const searchOwners = () => {
+//     if (searchTerm.value.length > 10) {
+//         filteredUsers.value = users.value.filter((user) =>
+//             user.cpf_cnpj.includes(searchTerm.value) || user.name.toLowerCase().includes(searchTerm.value.toLowerCase())
+//         );
+//     } else {
+//         filteredUsers.value = [];
+//     }
+// };
 const searchOwners = () => {
-    if (searchTerm.value.length > 10) {
-        filteredUsers.value = users.value.filter((user) =>
-            user.cpf_cnpj.includes(searchTerm.value) || user.name.toLowerCase().includes(searchTerm.value.toLowerCase())
-        );
-    } else {
+    
+    if (!searchTerm.value || searchTerm.value.length <= 10) {
         filteredUsers.value = [];
+        return;
     }
+
+    filteredUsers.value = users.value.filter((user) => {
+        console.log(user);
+        // Verifica se o CPF/CNPJ existe antes de tentar usar includes()
+        const cpfCnpj = user.cpf_cnpj ? user.cpf_cnpj.toString() : '';
+        const name = user.name ? user.name.toLowerCase() : '';
+
+        return (
+            cpfCnpj.includes(searchTerm.value) ||
+            name.includes(searchTerm.value.toLowerCase())
+        );
+    });
 };
 
 // Selecionar um proprietário na busca
