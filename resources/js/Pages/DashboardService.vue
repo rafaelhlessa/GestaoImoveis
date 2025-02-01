@@ -58,9 +58,9 @@ const applyPhoneMask = (value) => {
                                             <h2 class="text-pretty text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">Seus Clientes</h2>
                                             <p class="mt-6 mb-6 text-lg/8 text-gray-600">Lista dos clientes, proprietários que concederam acesso as informações das suas propriedades.</p>
                                         </div>
-                                            <ul role="list" v-if="props.serviceProviders" v-for="client in props.serviceProviders" :key="client" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                            <ul role="list" v-if="props.serviceProviders" v-for="client in props.serviceProviders" :key="client" class="grid md:grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                                 <a href="#" class="col-span-1 divide-y divide-gray-200 rounded-lg bg-white shadow m-2">
-                                                    <li @click="property(client.id)" class="w-96 col-span-1 divide-y divide-gray-200 rounded-lg bg-white shadow">
+                                                    <li @click="property(client.id)" class="lg:w-96 md:w-auto col-span-1 divide-y divide-gray-200 rounded-lg bg-white shadow">
                                                         <div class="flex w-full items-center justify-between space-x-6 p-6">
                                                         <div class="flex-1 truncate">
                                                             <div class="flex items-center space-x-3">

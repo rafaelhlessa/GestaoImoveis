@@ -4,8 +4,7 @@ import { useForm } from '@inertiajs/vue3';
 import { Head, router } from '@inertiajs/vue3';
 import { onMounted, reactive, ref } from 'vue'
 import { Disclosure, DisclosureButton, DisclosurePanel, RadioGroup, RadioGroupOption, Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/vue'
-import { StarIcon } from '@heroicons/vue/20/solid'
-import { HeartIcon, MinusIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { MinusIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
 
@@ -86,7 +85,7 @@ onMounted(() => {
     // console.log(props.owners);
     // console.log(props.property);
     // console.log(props.authorization);
-    console.log(props.canEdit);
+    // console.log(props.canEdit);
 });
 
 </script>
@@ -184,37 +183,28 @@ onMounted(() => {
                                                                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ detail.name }}</td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" v-tooltip="'Vencimento do documento'">{{ detail.date === null ? "Sem Data" : new Date(detail.date).toLocaleDateString('pt-BR') }}</td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" v-tooltip.top-start="'Clique para mudar a visibilidade do documento'">
-                                                                            <button @click="showModalDocumentShow = true" class="focus:outline-indigo-600">
-                                                                                <span v-if="detail.show === 1" class="inline-flex items-center gap-x-1.5 rounded-md bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
-                                                                                    <svg class="size-1.5 fill-green-500" viewBox="0 0 6 6" aria-hidden="true">
-                                                                                        <circle cx="3" cy="3" r="3" />
-                                                                                    </svg>
-                                                                                    Visível
-                                                                                </span>
-                                                                                <span v-else class="inline-flex items-center gap-x-1.5 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
-                                                                                    <svg class="size-1.5 fill-red-500" viewBox="0 0 6 6" aria-hidden="true">
-                                                                                        <circle cx="3" cy="3" r="3" />
-                                                                                    </svg>
-                                                                                    Não Visível
-                                                                                </span>
-                                                                            </button>
+                                                                            <span v-if="detail.show === 1" class="inline-flex items-center gap-x-1.5 rounded-md bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                                                                                <svg class="size-1.5 fill-green-500" viewBox="0 0 6 6" aria-hidden="true">
+                                                                                    <circle cx="3" cy="3" r="3" />
+                                                                                </svg>
+                                                                                Visível
+                                                                            </span>
+                                                                            <span v-else class="inline-flex items-center gap-x-1.5 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                                                                                <svg class="size-1.5 fill-red-500" viewBox="0 0 6 6" aria-hidden="true">
+                                                                                    <circle cx="3" cy="3" r="3" />
+                                                                                </svg>
+                                                                                Não Visível
+                                                                            </span>
                                                                         </td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                                            <div class="flex items-center space-x-2" v-if="props.canEdit === 1" >
+                                                                            <div class="flex items-center space-x-2">
                                                                                 <a :href="getDocSrc(detail.file)" download :download="detail.file_name" v-tooltip="'Baixar documento'">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                                                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                                                                        </svg>
+                                                                                    </svg>
                                                                                 </a>
-                                                                                <!-- <a :href="getDocSrc(detail.file)" target="_blank" v-tooltip="'Visualizar documento'">
-                                                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                                                                        </svg>
-                                                                                </a> -->
-                                                                                
-                                                                                
-                                                                                <!-- Modal Visualização Documento-->
 
+                                                                                <!-- Modal Visualização Documento-->
                                                                                 <transition name="showModalDocumentShow">
                                                                                     <div v-if="showModalDocumentShow" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
                                                                                         <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
@@ -251,7 +241,7 @@ onMounted(() => {
                                             </div>
                                         </section>
                                         <div class="flex justify-between items-end">
-                                            <button @click="goToPropriety(props.property.id)" class="ml-auto bg-gray-300 border border-gray-700 rounded py-2 px-4 text-gray-600 hover:text-gray-700 hover:bg-amber-400">Editar Propriedade</button>
+                                            <button @click="goToPropriety(props.property.id)" class="ml-auto bg-gray-600 border border-gray-700 rounded py-2 px-4 text-gray-50 hover:text-gray-100 hover:bg-gray-900">Editar Propriedade</button>
                                         </div>
                                     </div>
                                 </div>

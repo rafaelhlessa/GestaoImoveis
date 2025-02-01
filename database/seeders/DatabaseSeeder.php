@@ -6,6 +6,7 @@ use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Database\Seeders\TypeOwnershipSeeder;
+use Database\Seeders\ActivitySeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,12 +16,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            TypeOwnershipSeeder::class, // ✅ Adiciona o Seeder
+            TypeOwnershipSeeder::class, 
+            ActivitySeeder::class,
         ]);
 
-        // User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
     }
 }

@@ -58,7 +58,7 @@ const goToPropriety = (id) => {
                     <div class="p-6 text-gray-900 dark:text-gray-100">
                         <div class="bg-white rounded-lg shadow">
                             <ul role="list"
-                                class="px-6 py-6 grid grid-cols-4 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-8">
+                                class="px-6 py-6 grid md:grid-cols-4 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-8">
                                 <li v-for="file in properties" :key="file.source" class="relative border border-gray-200 rounded-lg p-4">
                                     <div
                                         class="group overflow-hidden rounded-lg bg-gray-100 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 focus-within:ring-offset-gray-100">

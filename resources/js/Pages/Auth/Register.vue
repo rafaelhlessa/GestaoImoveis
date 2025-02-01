@@ -8,6 +8,10 @@ import SelectInput from '@/Components/SelectInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref, reactive, onMounted, watch } from 'vue'
 
+const props = defineProps({
+    activities: Array,
+});
+
 const form = useForm({
     name: '',
     cpf_cnpj: '',
@@ -20,6 +24,7 @@ const form = useForm({
     password: '',
     password_confirmation: '',
     message: '',
+    activity_id: null,
 });
 
 const options = ref([
@@ -139,14 +144,32 @@ watch(
     }
 );
 
+const activity = ref(0)
+// Observa mudanças no Perfil e aplica a mudança
+watch(
+    () => form.profile_id,
+    (newValue, oldValue) => {
+        if (newValue && newValue !== oldValue) {
+            // form.profile_id = applyPhoneMask(newValue);
+            activity.value = newValue
+        }
+    }
+);
+
+// computed: {
+//   activity() {
+//     return this.class ? 'mt-2 sm:col-span-4 col-span-full' : 'mt-2 sm:col-span-4 col-span-full';
+//   }
+// }
+
 // Estado para controlar a exibição do modal
 const showModal = ref(false);
 
 // const submit = () => {
 //     const sanitizeValue = (value) => value.replace(/\D/g, ''); // Remove todos os caracteres não numéricos
 
-//     form.cpf_cnpj = sanitizeValue(form.cpf_cnpj);
-//     form.phone = sanitizeValue(form.phone);
+    // form.cpf_cnpj = sanitizeValue(form.cpf_cnpj);
+    // form.phone = sanitizeValue(form.phone);
 
 //     if (!form.name || !form.cpf_cnpj || !form.phone || !form.profile_id || !form.address || !form.city || !form.email || !form.password || !form.password_confirmation) {
 //         form.message = 'Preencha todos os campos obrigatórios.';
@@ -165,7 +188,7 @@ const message = ref('');
 
 const openModal = () => {
     // Verifica se todos os campos obrigatórios foram preenchidos
-    if (!form.name || !sanitizedCpfCnpj.value || !sanitizedPhone.value || 
+    if (!form.name || !form.cpf_cnpj || !form.phone || 
         !form.profile_id || !form.address || !form.city || 
         !form.email || !form.password || !form.password_confirmation) {
         
@@ -181,8 +204,10 @@ const openModal = () => {
 const submit = () => {
     // Envia apenas quando o modal estiver aberto e sem erros
     if (showModal.value && message.value === '') {
-        form.cpf_cnpj = sanitizedCpfCnpj.value;
-        form.phone = sanitizedPhone.value;
+        const sanitizeValue = (value) => value.replace(/\D/g, ''); // Remove todos os caracteres não numéricos
+
+        form.cpf_cnpj = sanitizeValue(form.cpf_cnpj);
+        form.phone = sanitizeValue(form.phone);
 
         form.post(route('register'), {
             onFinish: () => {
@@ -220,32 +245,48 @@ const closeModal = () => {
                         <InputError class="mt-2" :message="form.errors.name" />
                     </div>
 
-                    <div class="mt-2 sm:col-span-4 col-span-full ">
+                    <div :class="[activity === 0 ? 'mt-2 sm:col-span-4 col-span-full' : 'mt-2 sm:col-span-3 col-span-full']">
+                    
                         <InputLabel for="cpf_cnpj" value="CPF ou CNPJ" />
 
                         <TextInput id="cpf_cnpj" type="text" class="mt-1 block w-full" v-model="form.cpf_cnpj" required
-                            autofocus autocomplete="cpf_cnpj" placeholder="Prestador de serviço preencher com CNPJ"
+                            autofocus autocomplete="cpf_cnpj" placeholder="CPF ou CNPJ"
                             minlength="14" maxlength="18" />
 
                         <InputError class="mt-2" :message="form.errors.cpf_cnpj" />
                     </div>
 
-                    <div class="mt-2 sm:col-span-4 col-span-full">
+                    <div :class="[activity === 0 ? 'mt-2 sm:col-span-4 col-span-full' : 'mt-2 sm:col-span-3 col-span-full']">
+                        <InputLabel for="type" value="Perfil" />
+
+                        <SelectInput class="mt-1 block w-full" v-model="form.profile_id" required>
+                            <option v-for="option in options" :value="option.value" :key="option.value">
+                                {{ option.label }}
+                            </option>
+                        </SelectInput>
+                        {{ props.activity }}
+                        <InputError class="mt-2" :message="form.errors.type" />
+                    </div>
+
+                    <div v-if="activity > 1" class="mt-2 sm:col-span-2 col-span-full">
+                        <InputLabel for="type" value="Atividade" />
+
+                        <SelectInput class="mt-1 block w-full" v-model="form.activity_id" required>
+                            <option v-for="option in props.activities" :value="option.id" :key="option.id">
+                                {{ option.name }}
+                            </option>
+                        </SelectInput>
+                        
+                        <InputError class="mt-2" :message="form.errors.type" />
+                    </div>
+
+                    <div class="mt-2 sm:col-span-3 col-span-full">
                         <InputLabel for="phone" value="Telefone" />
 
                         <TextInput id="phone" type="text" class="mt-1 block w-full" v-model="form.phone" required autofocus
                             autocomplete="phone" placeholder="DDD e número (somente números)" maxlength="15" />
 
                         <InputError class="mt-2" :message="form.errors.phone" />
-                    </div>
-
-                    <div class="mt-2 sm:col-span-6 col-span-full">
-                        <InputLabel for="address" value="Endereço" />
-
-                        <TextInput id="address" type="text" class="mt-1 block w-full" v-model="form.address" required autofocus
-                            autocomplete="address" placeholder="Rua, nº, Bairro" />
-
-                        <InputError class="mt-2" :message="form.errors.address" />
                     </div>
 
                     <div class="mt-2 sm:col-span-3 col-span-full">
@@ -268,15 +309,13 @@ const closeModal = () => {
                         </div>
                     </div>
 
-                    <div class="mt-2 sm:col-span-3 col-span-full">
-                        <InputLabel for="type" value="Perfil" />
+                    <div class="mt-2 sm:col-span-6 col-span-full">
+                        <InputLabel for="address" value="Endereço" />
 
-                        <SelectInput class="mt-1 block w-full" v-model="form.profile_id" required>
-                            <option v-for="option in options" :value="option.value" :key="option.value">
-                                {{ option.label }}
-                            </option>
-                        </SelectInput>
-                        <InputError class="mt-2" :message="form.errors.type" />
+                        <TextInput id="address" type="text" class="mt-1 block w-full" v-model="form.address" required autofocus
+                            autocomplete="address" placeholder="Rua, nº, Bairro" />
+
+                        <InputError class="mt-2" :message="form.errors.address" />
                     </div>
 
                     <div class="relative py-4 col-span-full">

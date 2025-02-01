@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Mail\AccountActivation;
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
@@ -26,7 +27,9 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('Auth/Register');
+        $activity = Activity::all();
+        // dd($activity);
+        return Inertia::render('Auth/Register', ['activities' => $activity]);
     }
 
     /**
@@ -52,11 +55,12 @@ class RegisteredUserController extends Controller
         $user = User::create([
             'name' => $request->name,
             'cpf_cnpj' => $request->cpf_cnpj,
+            'profile_id' => $request->profile_id,
+            'activity_id' => $request->activity_id,
             'phone' => $request->phone,
             'address' => $request->address,
             'city' => $request->city,
             'city_id' => $request->city_id,
-            'profile_id' => $request->profile_id,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'activation_token' => Str::random(32), // Gerar o token de ativação

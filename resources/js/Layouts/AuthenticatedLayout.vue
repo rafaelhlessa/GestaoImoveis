@@ -156,6 +156,14 @@ const showingNavigationDropdown = ref(false);
                         >
                             Dashboard
                         </ResponsiveNavLink>
+
+                        <ResponsiveNavLink
+                            v-if="$page.props.auth.user.profile_id != 2"
+                            :href="route('property.index')"
+                            :active="route().current('property.index')"
+                        >
+                            Propriedades
+                        </ResponsiveNavLink>
                     </div>
 
                     <!-- Responsive Settings Options -->
@@ -174,6 +182,11 @@ const showingNavigationDropdown = ref(false);
                         </div>
 
                         <div class="mt-3 space-y-1">
+                            <ResponsiveNavLink v-if="$page.props.auth.user.profile_id != 2"
+                                :href="route('authorizations.index', $page.props.auth.user.id)"
+                            >
+                                Autorizações
+                            </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('profile.edit')">
                                 Profile
                             </ResponsiveNavLink>

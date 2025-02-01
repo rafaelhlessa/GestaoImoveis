@@ -25,6 +25,7 @@ return new class extends Migration
             $table->string('password');
             $table->boolean('is_active')->default(false);
             $table->boolean('is_admin')->default(false);
+            $table->foreignId('activity_id')->constrained('activity')->onDelete('cascade');
             $table->rememberToken();
             $table->timestamps();
         });

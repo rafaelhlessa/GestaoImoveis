@@ -285,9 +285,9 @@ watch(
                     v-model="profileForm.type"
                     required
                 >
-                    <option value="proprietario">Proprietário</option>
-                    <option v-if="user.type === 'administrador'" value="administrador">Administrador</option>
-                    <option v-if="user.type === 'administrador' || user.type === 'suporte'" value="suporte">Suporte</option>
+                    <option value="1">Proprietário</option>
+                    <option value="2">Prestador de Serviço</option>
+                    <option value="3">Proprietário/Prestador de Serviço</option>
                 </select>
 
                 <InputError class="mt-2" :message="profileForm.errors.type" />

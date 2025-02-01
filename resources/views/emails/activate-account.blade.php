@@ -14,7 +14,7 @@
                     {{-- Logo Centralizado --}}
                     <tr>
                         <td style="padding-bottom: 20px;"> 
-                            <img src="/storage/logo-sem fundo.png" alt="Logo da Empresa" width="150" style="border-radius: 8px;">
+                            <img src="/storage/logo-sem-fundo.png" alt="Logo da Empresa" width="150" style="border-radius: 8px;">
                         </td>
                     </tr>
 

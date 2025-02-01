@@ -27,6 +27,7 @@ class User extends Authenticatable
         'name',
         'cpf_cnpj',
         'email',
+        'address',
         'phone',
         'profile_id',
         'city',
@@ -34,6 +35,7 @@ class User extends Authenticatable
         'type',
         'password',
         'is_active',
+        'activity_id',
         'activation_token',
         'login_token'
     ];
@@ -116,6 +118,11 @@ class User extends Authenticatable
             'id', // Chave primária em User
             'type_ownership_id' // Chave estrangeira em property_user referenciando type_ownership
         );
+    }
+
+    public function activity(): HasOne
+    {
+        return $this->hasOne(Activity::class, 'id', 'activity_id');
     }
 
 }
