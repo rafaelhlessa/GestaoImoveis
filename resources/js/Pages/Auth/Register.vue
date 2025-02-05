@@ -259,7 +259,8 @@ const closeModal = () => {
                     <div :class="[activity === 0 ? 'mt-2 sm:col-span-4 col-span-full' : 'mt-2 sm:col-span-3 col-span-full']">
                         <InputLabel for="type" value="Perfil" />
 
-                        <SelectInput class="mt-1 block w-full" v-model="form.profile_id" required>
+                        <SelectInput class="mt-1 block w-full" v-model="form.profile_id" :value="modelValue ||''" @change="$emit('update:modelValue', $event.target.value)" required>
+                            <option value="" disabled selected>Escolha uma opção</option>
                             <option v-for="option in options" :value="option.value" :key="option.value">
                                 {{ option.label }}
                             </option>
@@ -271,7 +272,7 @@ const closeModal = () => {
                     <div v-if="activity > 1" class="mt-2 sm:col-span-2 col-span-full">
                         <InputLabel for="type" value="Atividade" />
 
-                        <SelectInput class="mt-1 block w-full" v-model="form.activity_id" required>
+                        <SelectInput class="mt-1 block w-full" v-model="form.activity_id" :value="modelValue || ''" required>
                             <option v-for="option in props.activities" :value="option.id" :key="option.id">
                                 {{ option.name }}
                             </option>

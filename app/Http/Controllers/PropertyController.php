@@ -297,7 +297,7 @@ class PropertyController extends Controller
                 PropertyDocument::where('id', $existingDocuments[$document['file_name']])
                     ->update([
                         'name' => $document['name'],
-                        'date' => $document['date'] ?? null,
+                        'date' => $document['date'] === "Sem Data" ? null : $document['date'],
                         'show' => $document['show'],
                         'file' => $document['file'],
                     ]);
@@ -305,7 +305,7 @@ class PropertyController extends Controller
                 // Criar novo documento
                 PropertyDocument::create([
                     'name' => $document['name'],
-                    'date' => $document['date'] ?? null,
+                    'date' => $document['date'] === "Sem Data" ? null : $document['date'],
                     'show' => $document['show'],
                     'file' => $document['file'],
                     'file_name' => $document['file_name'],
