@@ -42,6 +42,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('property', PropertyController::class);
     Route::get('propertyNew/{id?}', [PropertyController::class, 'clientsProperty'])->name('clients.property');
     Route::get('propertyShow/{id?}', [PropertyController::class, 'clientShow'])->name('clients.show');
+    Route::get('/property/document/{id}', [PropertyController::class, 'viewDocument'])->name('property.viewDocument');
     Route::patch('property/property/{document}', [PropertyController::class, 'updateDocumentShow'])->name('property.updateDocument'); //Route PATCH to update the document show status
 });    
 

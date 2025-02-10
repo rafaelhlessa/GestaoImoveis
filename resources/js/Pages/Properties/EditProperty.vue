@@ -436,24 +436,26 @@ const handleDocumentUpload = async (event) => {
 
     // Verifica se o arquivo é um tipo permitido
     const allowedTypes = [
-        'application/pdf', 
-        'application/msword', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.google-earth.kml+xml',
-        'application/vnd.google-earth.kmz'
+        'application/vnd.google-earth.kmz',
+        'application/octet-stream', // Alguns navegadores identificam .KMZ assim
+        'application/zip' // Algumas vezes .KMZ é identificado como ZIP
 ]     
-    
-    if (!allowedTypes.includes(file.type)) {
-        alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx, .kmz, .kml)";
-        alert.show = true;
-        alert.type = "warning";
-        alert.color = "yellow";
-        setTimeout(() => {
-            alert.show = false;
-        }, 3000);
-        event.target.value = ""; // Limpa o input
-        return;
-    }
+    console.log("Tipo do arquivo detectado:", file);
+    // if (!allowedTypes.includes(file.type)) {
+    //     alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx, .kmz, .kml)";
+    //     alert.show = true;
+    //     alert.type = "warning";
+    //     alert.color = "yellow";
+    //     setTimeout(() => {
+    //         alert.show = false;
+    //     }, 3000);
+    //     event.target.value = ""; // Limpa o input
+    //     return;
+    // }
     
 
     // Define os valores no estado reativo do Vue de forma controlada

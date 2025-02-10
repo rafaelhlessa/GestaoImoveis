@@ -7,6 +7,7 @@ import { Disclosure, DisclosureButton, DisclosurePanel, RadioGroup, RadioGroupOp
 import { MinusIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
+import KmlMap from '@/Components/KmlMap.vue';
 
 const form = useForm({
     name: '',
@@ -39,6 +40,38 @@ const vTooltip = {
   }
 };
 
+// Controle do modal e URL do KML
+const showKmlModal = ref(false);
+const selectedKmlData = ref('');
+
+// Função para verificar se o documento é KML
+const isKmlFile = (base64Data) => {
+  return (
+    base64Data && typeof base64Data === 'string' && base64Data.startsWith('data:application/octet-stream;base64,')
+  );
+};
+
+
+// Função para abrir documento
+const openDocument = (document) => {
+  if (!document || !document.file) {
+    console.error('Documento inválido:', document);
+    return;
+  }
+
+  if (isKmlFile(document.file)) {
+    // Se for KML, abre no modal para visualização
+    selectedKmlData.value = document.file; // Passa o Base64 para o modal
+    showKmlModal.value = true;
+  } else {
+    // Senão, cria um link para download ou visualização
+    const link = document.createElement('a');
+    link.href = document.file;
+    link.download = document.name || 'document';
+    link.click();
+  }
+};
+
 const props = defineProps({
     property: Object,
     documents: Array,
@@ -57,14 +90,31 @@ const getImageSrc = (base64Data) => {
         : `data:image/jpeg;base64,${base64Data}`; // Ajuste conforme o tipo de imagem (jpeg/png)
 };
 
-const getDocSrc = (base64Data) => {
-    if (!base64Data) return ''; // Se não houver imagem, retorna vazio para evitar erros
+// const getDocSrc = (base64Data) => {
+//     if (!base64Data) return ''; // Se não houver imagem, retorna vazio para evitar erros
 
-    // Verifica se a string já tem o prefixo correto (data:application/)
-    return base64Data.startsWith('data:application')
-        ? base64Data
-        : `data:application/pdf;base64,${base64Data}`; // Ajuste conforme o tipo de documento (pdf/docx)
+//     // Verifica se a string já tem o prefixo correto (data:application/)
+//     return base64Data.startsWith('data:application')
+//         ? base64Data
+//         : `data:application/pdf;base64,${base64Data}`; // Ajuste conforme o tipo de documento (pdf/docx)
+// };
+
+const getDocSrc = (base64Data) => {
+    if (!base64Data) return ''; // Retorna vazio se não houver arquivo
+
+    // Verifica e ajusta conforme necessário
+    if (base64Data.startsWith('data:application')) {
+        return base64Data;
+    }
+
+    // Ajusta para documentos comuns como PDF
+    return `data:application/pdf;base64,${base64Data}`;
 };
+
+// const openDocument = (id) => {
+//   // Abre o arquivo em uma nova aba usando a rota definida
+//   window.open(route('property.viewDocument', id), '_blank');
+// };
 
 const goToPropriety = (id) => {
   router.get(route('property.edit', id));
@@ -198,11 +248,17 @@ onMounted(() => {
                                                                         </td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                                                             <div class="flex items-center space-x-2">
-                                                                                <a :href="getDocSrc(detail.file)" download :download="detail.file_name" v-tooltip="'Baixar documento'">
+                                                                                <!-- <a :href="route('property.viewDocument', detail.id)" target="_blank" v-tooltip="'Visualizar documento'">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                                                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                                                                                     </svg>
-                                                                                </a>
+                                                                                </a> -->
+                                                                                <button @click="openDocument(detail)" v-tooltip="'Visualizar documento'">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                                                                    </svg>
+                                                                                </button>
+                                                                                                                                                                     
 
                                                                                 <!-- Modal Visualização Documento-->
                                                                                 <transition name="showModalDocumentShow">
@@ -223,6 +279,24 @@ onMounted(() => {
                                                                                                         Sim
                                                                                                     </button>
                                                                                                 </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </transition>
+
+                                                                                <!-- Modal para visualizar KML -->
+                                                                                <transition name="modal">
+                                                                                    <div v-if="showKmlModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                                                                                        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-4xl">
+                                                                                            <h3 class="text-lg font-medium text-gray-900 mb-4">Visualização de KML</h3>
+                                                                                        
+                                                                                            <!-- Componente KML -->
+                                                                                            <KmlMap v-if="selectedKmlUrl" :kmlUrl="selectedKmlUrl" />
+
+                                                                                            <div class="flex justify-end mt-4">
+                                                                                                <button @click="showKmlModal = false" class="bg-gray-600 text-white px-4 py-2 rounded">
+                                                                                                Fechar
+                                                                                                </button>
                                                                                             </div>
                                                                                         </div>
                                                                                     </div>

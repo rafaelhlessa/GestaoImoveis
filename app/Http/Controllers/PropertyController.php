@@ -12,6 +12,8 @@ use App\Models\Authorization;
 use App\Models\TypeOwnership;
 use Illuminate\Support\Facades\DB;
 use Mockery\Matcher\Type;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Response;
 
 class PropertyController extends Controller
 {
@@ -459,4 +461,34 @@ class PropertyController extends Controller
 
         ]);
     }
+
+    public function viewDocument($id)
+    {
+        // Busca o documento no banco de dados
+        $document = PropertyDocument::findOrFail($id);
+
+        // Se o documento não existir ou não tiver um arquivo válido, retorna erro 404
+        if (!$document || !$document->file) {
+            abort(404, 'Documento não encontrado.');
+        }
+
+        // Converte o base64 para binário
+        $fileData = base64_decode($document->file);
+
+        // Identifica o tipo do arquivo (PDF ou KML)
+        $mimeType = 'application/octet-stream'; // Tipo padrão genérico
+
+        if (str_ends_with(strtolower($document->file_name), '.pdf')) {
+            $mimeType = 'application/pdf';
+        } elseif (str_ends_with(strtolower($document->file_name), '.kml')) {
+            $mimeType = 'application/vnd.google-earth.kml+xml';
+        }
+
+        // Retorna o arquivo como resposta HTTP para exibição direta no navegador
+        return Response::make($fileData, 200, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . $document->file_name . '"'
+        ]);
+    }
+
 }
