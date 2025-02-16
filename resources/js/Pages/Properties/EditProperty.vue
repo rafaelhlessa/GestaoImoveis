@@ -356,12 +356,13 @@ const updateForm = () => {
 
 // Converter arquivo para Base64
 const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = (error) => reject(error);
-    });
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = (error) => reject(error);
+        });
+    
 };
 
 // Captura e converte a imagem principal para Base64
@@ -382,17 +383,17 @@ const addDocument = () => {
     if (isAdding.value) return; // Se já está adicionando, impede outra chamada
     isAdding.value = true; // Bloqueia novas execuções enquanto processa
 
-    if (!newDocument.value.file) {
-        alert.message = "Por favor, selecione um arquivo válido antes de adicionar.";
-        alert.show = true;
-        alert.type = "warning";
-        alert.color = "yellow";
-        setTimeout(() => {
-                alert.show = false;
-            }, 3000);
-        isAdding.value = false; // Libera novamente para nova tentativa
-        return;
-    }
+    // if (!newDocument.value.file) {
+    //     alert.message = "Por favor, selecione um arquivo válido antes de adicionar.";
+    //     alert.show = true;
+    //     alert.type = "warning";
+    //     alert.color = "yellow";
+    //     setTimeout(() => {
+    //             alert.show = false;
+    //         }, 3000);
+    //     isAdding.value = false; // Libera novamente para nova tentativa
+    //     return;
+    // }
 
     const documentDate = newDocument.value.date ? newDocument.value.date : "Sem Data"; // Define uma data padrão se não informada
 
@@ -442,25 +443,26 @@ const handleDocumentUpload = async (event) => {
         'application/vnd.google-earth.kml+xml',
         'application/vnd.google-earth.kmz',
         'application/octet-stream', // Alguns navegadores identificam .KMZ assim
-        'application/zip' // Algumas vezes .KMZ é identificado como ZIP
+        'application/zip', // Algumas vezes .KMZ é identificado como ZIP
+        
 ]     
-    console.log("Tipo do arquivo detectado:", file);
-    // if (!allowedTypes.includes(file.type)) {
-    //     alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx, .kmz, .kml)";
-    //     alert.show = true;
-    //     alert.type = "warning";
-    //     alert.color = "yellow";
-    //     setTimeout(() => {
-    //         alert.show = false;
-    //     }, 3000);
-    //     event.target.value = ""; // Limpa o input
-    //     return;
-    // }
+    console.log("Tipo do arquivo detectado:", !allowedTypes.includes(file.type));
+    if (!allowedTypes.includes(file.type)) {
+        alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx, .kmz, .kml)";
+        alert.show = true;
+        alert.type = "warning";
+        alert.color = "yellow";
+        setTimeout(() => {
+            alert.show = false;
+        }, 3000);
+        event.target.value = ""; // Limpa o input
+        return;
+    }
     
 
     // Define os valores no estado reativo do Vue de forma controlada
     newDocument.value.file_name = file.name;
-
+    console.log(newDocument.value,file);
     try {
         newDocument.value.file = await convertToBase64(file);
 
@@ -1011,7 +1013,7 @@ watch(
                                                         </div>
                                                         <div class="mb-4">
                                                             <label for="document-file" class="block text-sm font-medium text-gray-700">Arquivo</label>
-                                                            <input type="file" :key="inputKey" id="document-file" @change="handleDocumentUpload" accept=".pdf,.doc,.docx"
+                                                            <input type="file" :key="inputKey" id="document-file" @change="handleDocumentUpload" accept=".pdf,.doc,.docx, .kml, .kmz"
                                                                 class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer focus:outline-none focus:border-indigo-500 focus:ring-indigo-500" required>
                                                         </div>
                                                         <div class="flex justify-end">

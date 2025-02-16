@@ -1,53 +1,65 @@
+<script setup>
+import { onMounted, ref, watch } from 'vue';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import omnivore from '@mapbox/leaflet-omnivore';
+
+const props = defineProps({
+  kmlUrl: String, // URL do arquivo KML
+});
+
+const map = ref(null);
+const mapElement = ref(null);
+const kmlLayer = ref(null);
+
+onMounted(() => {
+  if (!mapElement.value) return;
+
+  map.value = L.map(mapElement.value).setView([-15.7801, -47.9292], 5);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map.value);
+
+  if (props.kmlUrl) {
+    console.log("📌 Chamando Leaflet com URL:", props.kmlUrl);
+    loadKml(props.kmlUrl);
+  }
+});
+
+// Função para carregar KML
+const loadKml = (url) => {
+  console.log("📌 Tentando carregar KML do URL:", url);
+
+  if (!url) {
+    console.error("⚠️ URL do KML está vazia!");
+    return;
+  }
+
+  if (kmlLayer.value) {
+    map.value.removeLayer(kmlLayer.value);
+  }
+
+  kmlLayer.value = omnivore.kml(url)
+    .on('ready', function () {
+      console.log("✅ KML carregado com sucesso!");
+      map.value.fitBounds(kmlLayer.value.getBounds());
+    })
+    .on('error', function (e) {
+      console.error("❌ Erro ao carregar KML:", e);
+    })
+    .addTo(map.value);
+};
+
+// Atualiza KML quando a URL mudar
+watch(() => props.kmlUrl, (newUrl) => {
+  if (newUrl && map.value) {
+    console.log("📌 URL do KML mudou para:", newUrl);
+    loadKml(newUrl);
+  }
+});
+</script>
+
 <template>
-    TEste
-    <div id="map" style="height: 800px;"></div>
-  </template>
-  
-  <script setup>
-  import { onMounted, watch } from 'vue';
-  import L from 'leaflet';
-  import 'leaflet-kml';
-  
-  // Recebe a propriedade `kmlData` passada pelo componente pai
-  defineProps({
-    kmlData: {
-      type: String,
-      required: true,
-    },
-  });
-  
-  // Função para carregar o KML a partir de Base64
-  const loadKmlFromBase64 = (base64) => {
-    const rawKml = atob(base64.split(',')[1]); // Decodifica o conteúdo Base64
-    const kmlLayer = new L.KML(rawKml);
-    map.addLayer(kmlLayer);
-    map.fitBounds(kmlLayer.getBounds());
-  };
-  
-  let map;
-  
-  onMounted(() => {
-    // Inicializa o mapa
-    map = L.map('map').setView([0, 0], 2);
-  
-    // Adiciona o layer de tiles do OpenStreetMap
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap',
-    }).addTo(map);
-  
-    // Carrega o KML inicial
-    loadKmlFromBase64(kmlData);
-  });
-  
-  // Observa alterações na propriedade `kmlData` para recarregar o KML
-  watch(
-    () => kmlData,
-    (newData) => {
-      if (map && newData) {
-        loadKmlFromBase64(newData);
-      }
-    }
-  );
-  </script>
-  
+  <div ref="mapElement" class="w-full h-[600px]"></div>
+</template>

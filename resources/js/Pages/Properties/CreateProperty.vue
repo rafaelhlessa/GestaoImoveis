@@ -371,8 +371,9 @@ const handleDocumentUpload = async (event) => {
         'application/msword', 
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
         'application/vnd.google-earth.kml+xml',
-        'application/vnd.google-earth.kmz'
-]     
+        'application/vnd.google-earth.kmz',
+        'application/octet-stream'
+    ]     
     
     if (!allowedTypes.includes(file.type)) {
         alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx, .kmz, .kml)";
