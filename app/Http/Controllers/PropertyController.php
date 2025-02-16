@@ -12,6 +12,8 @@ use App\Models\Authorization;
 use App\Models\TypeOwnership;
 use Illuminate\Support\Facades\DB;
 use Mockery\Matcher\Type;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Response;
 
 class PropertyController extends Controller
 {
@@ -86,7 +88,7 @@ class PropertyController extends Controller
                     'name' => $doc['name'],
                     'date' => $doc['date'] === "Sem Data" ? null : $doc['date'],
                     'show' => $doc['show'],
-                    'file' => $doc['file'],
+                    'file' => preg_replace('/^data:application\/[a-zA-Z0-9.+-]+;base64,/', '', $doc['file']),
                     'file_name' => $doc['file_name'],
                     'property_id' => $property->id,
                 ];
@@ -292,20 +294,22 @@ class PropertyController extends Controller
     
         // 🔄 **Adicionar ou atualizar documentos**
         foreach ($request->documents as $document) {
+            $base64File = preg_replace('/^data:application\/[a-zA-Z0-9.+-]+;base64,/', '', $document['file']);
+            
             if (isset($existingDocuments[$document['file_name']])) {
                 // Atualizar documento existente
                 PropertyDocument::where('id', $existingDocuments[$document['file_name']])
                     ->update([
                         'name' => $document['name'],
-                        'date' => $document['date'] ?? null,
+                        'date' => $document['date'] === "Sem Data" ? null : $document['date'],
                         'show' => $document['show'],
-                        'file' => $document['file'],
+                        'file' => $base64File,
                     ]);
             } else {
                 // Criar novo documento
                 PropertyDocument::create([
                     'name' => $document['name'],
-                    'date' => $document['date'] ?? null,
+                    'date' => $document['date'] === "Sem Data" ? null : $document['date'],
                     'show' => $document['show'],
                     'file' => $document['file'],
                     'file_name' => $document['file_name'],
@@ -459,4 +463,108 @@ class PropertyController extends Controller
 
         ]);
     }
+
+    public function viewDocument($id)
+    {
+        // Busca o documento no banco de dados
+        $document = PropertyDocument::findOrFail($id);
+
+        // Se o documento não existir ou não tiver um arquivo válido, retorna erro 404
+        if (!$document || !$document->file) {
+            abort(404, 'Documento não encontrado.');
+        }
+
+        // Converte o base64 para binário
+        $fileData = base64_decode($document->file);
+
+        // Identifica o tipo do arquivo (PDF ou KML)
+        $mimeType = 'application/octet-stream'; // Tipo padrão genérico
+
+        if (str_ends_with(strtolower($document->file_name), '.pdf')) {
+            $mimeType = 'application/pdf';
+        } elseif (str_ends_with(strtolower($document->file_name), '.kml')) {
+            $mimeType = 'application/vnd.google-earth.kml+xml';
+        }
+
+        // Retorna o arquivo como resposta HTTP para exibição direta no navegador
+        return Response::make($fileData, 200, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . $document->file_name . '"'
+        ]);
+    }
+
+    public function getKmlUrl($propertyId)
+    {
+        $property = Property::findOrFail($propertyId);
+        $document = PropertyDocument::where('property_id', $property->id)->where('type', 'kml')->first();
+
+        if (!$document) {
+            return response()->json(['error' => 'KML file not found'], 404);
+        }
+
+        return response()->json(['url' => Storage::url($document->path)]);
+    }
+
+    public function getKmlDocument($id)
+    {
+        $document = PropertyDocument::find($id);
+
+        if (!$document || !$document->file) {
+            return response()->json(['error' => 'Arquivo KML não encontrado'], 404);
+        }
+
+        // Remover prefixo "data:..."
+        $base64 = preg_replace('/^data:application\/[a-zA-Z0-9.+-]+;base64,/', '', trim($document->file));
+
+        // Decodificar Base64
+        $fileData = base64_decode($base64, true);
+
+        if (!$fileData || !str_starts_with(trim($fileData), "<?xml")) {
+            return response()->json(['error' => 'Arquivo KML corrompido ou inválido'], 500);
+        }
+
+        return response($fileData, 200)
+            ->header('Content-Type', 'application/vnd.google-earth.kml+xml')
+            ->header('Content-Disposition', 'inline; filename="map.kml"')
+            ->header('Access-Control-Allow-Origin', '*') // Permitir acesso de qualquer origem
+            ->header('Access-Control-Allow-Methods', 'GET, OPTIONS') // Permitir apenas GET
+            ->header('Access-Control-Allow-Headers', 'Content-Type'); // Permitir cabeçalhos específicos
+    }
+
+    public function getDocument($id)
+    {
+        $document = PropertyDocument::find($id);
+
+        if (!$document || !$document->file) {
+            return response()->json(['error' => 'Arquivo não encontrado'], 404);
+        }
+
+        // Extrair a extensão do arquivo
+        $fileName = $document->file_name;
+        $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+        // Remover prefixo "data:..." antes de decodificar o Base64
+        $base64 = preg_replace('/^data:application\/[a-zA-Z0-9.+-]+;base64,/', '', trim($document->file));
+        $fileData = base64_decode($base64, true);
+
+        if (!$fileData) {
+            return response()->json(['error' => 'Erro ao decodificar o arquivo'], 500);
+        }
+
+        // Determinar o tipo de MIME correto
+        $mimeTypes = [
+            'pdf' => 'application/pdf',
+            'kml' => 'application/vnd.google-earth.kml+xml',
+            'kmz' => 'application/vnd.google-earth.kmz',
+            'doc' => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+
+        $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
+
+        return response($fileData, 200)
+            ->header('Content-Type', $contentType)
+            ->header('Content-Disposition', in_array($extension, ['doc', 'docx']) ? 'attachment; filename="' . $fileName . '"' : 'inline; filename="' . $fileName . '"');
+    }
+
 }

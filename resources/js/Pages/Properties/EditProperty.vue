@@ -39,6 +39,9 @@ const alert = reactive({
 const owners = ref(props.owners || []); // Proprietários da propriedade
 const users = ref(props.users || []); // Usuários disponíveis para adicionar como proprietários
 const documents = ref(props.documents || []); // Documento a ser adicionado
+
+const docDate = ref(false);
+
 // Classes dinâmicas para cores de alertas
 const colors = {
     red: "bg-red-200 text-red-800",
@@ -353,12 +356,13 @@ const updateForm = () => {
 
 // Converter arquivo para Base64
 const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = (error) => reject(error);
-    });
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = (error) => reject(error);
+        });
+    
 };
 
 // Captura e converte a imagem principal para Base64
@@ -379,17 +383,17 @@ const addDocument = () => {
     if (isAdding.value) return; // Se já está adicionando, impede outra chamada
     isAdding.value = true; // Bloqueia novas execuções enquanto processa
 
-    if (!newDocument.value.file) {
-        alert.message = "Por favor, selecione um arquivo válido antes de adicionar.";
-        alert.show = true;
-        alert.type = "warning";
-        alert.color = "yellow";
-        setTimeout(() => {
-                alert.show = false;
-            }, 3000);
-        isAdding.value = false; // Libera novamente para nova tentativa
-        return;
-    }
+    // if (!newDocument.value.file) {
+    //     alert.message = "Por favor, selecione um arquivo válido antes de adicionar.";
+    //     alert.show = true;
+    //     alert.type = "warning";
+    //     alert.color = "yellow";
+    //     setTimeout(() => {
+    //             alert.show = false;
+    //         }, 3000);
+    //     isAdding.value = false; // Libera novamente para nova tentativa
+    //     return;
+    // }
 
     const documentDate = newDocument.value.date ? newDocument.value.date : "Sem Data"; // Define uma data padrão se não informada
 
@@ -432,10 +436,19 @@ const handleDocumentUpload = async (event) => {
     const file = event.target.files[0];
 
     // Verifica se o arquivo é um tipo permitido
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    
+    const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.google-earth.kml+xml',
+        'application/vnd.google-earth.kmz',
+        'application/octet-stream', // Alguns navegadores identificam .KMZ assim
+        'application/zip', // Algumas vezes .KMZ é identificado como ZIP
+        
+]     
+    console.log("Tipo do arquivo detectado:", !allowedTypes.includes(file.type));
     if (!allowedTypes.includes(file.type)) {
-        alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx)";
+        alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx, .kmz, .kml)";
         alert.show = true;
         alert.type = "warning";
         alert.color = "yellow";
@@ -445,10 +458,11 @@ const handleDocumentUpload = async (event) => {
         event.target.value = ""; // Limpa o input
         return;
     }
+    
 
     // Define os valores no estado reativo do Vue de forma controlada
     newDocument.value.file_name = file.name;
-
+    console.log(newDocument.value,file);
     try {
         newDocument.value.file = await convertToBase64(file);
 
@@ -768,7 +782,7 @@ watch(
                                             </div>
 
                                             <div class="sm:col-span-3 col-span-full">
-                                                <label for="locality" class="block text-sm font-medium text-gray-900">Localidade</label>
+                                                <label for="locality" class="block text-sm font-medium text-gray-900">{{form.type_property === 1 ? 'Bairro' : 'Localidade'}}</label>
                                                 <div class="mt-2">
                                                     <input type="text" name="locality" id="locality" v-model="form.locality"
                                                         class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 sm:text-sm" />
@@ -959,6 +973,22 @@ watch(
                                                                 class="mt-1 block w-full text-gray-700 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
                                                         </div>
                                                         <div class="mb-4">
+                                                            <legend class="text-sm/6 font-semibold text-gray-900">Documento possui validade?</legend>
+                                                            <div class="mt-3 space-y-3">
+                                                                <div class="flex items-center gap-x-1">
+                                                                    <input id="push-showDoc"
+                                                                        name="push-show" type="radio" v-model="docDate" :value="true"
+                                                                        class="relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white not-checked:before:hidden checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-gray-400 forced-colors:appearance-auto forced-colors:before:hidden" />
+                                                                    <label for="push-showDoc" class="block text-sm/6 font-medium text-gray-900">Sim</label>
+                                                                </div>
+                                                                <div class="flex items-center gap-x-1">
+                                                                    <input id="push-show" name="push-show" type="radio" v-model="docDate" :value="false"
+                                                                        class="relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white not-checked:before:hidden checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-gray-400 forced-colors:appearance-auto forced-colors:before:hidden" />
+                                                                    <label for="push-show" class="block text-sm/6 font-medium text-gray-900">Não</label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div v-if="docDate === true" class="mb-4">
                                                             <label for="document-date"
                                                                 class="block text-sm font-medium text-gray-700">Data de Vencimento</label>
                                                             <input type="date" id="document-date" v-model="newDocument.date"
@@ -983,7 +1013,7 @@ watch(
                                                         </div>
                                                         <div class="mb-4">
                                                             <label for="document-file" class="block text-sm font-medium text-gray-700">Arquivo</label>
-                                                            <input type="file" :key="inputKey" id="document-file" @change="handleDocumentUpload" accept=".pdf,.doc,.docx"
+                                                            <input type="file" :key="inputKey" id="document-file" @change="handleDocumentUpload" accept=".pdf,.doc,.docx, .kml, .kmz"
                                                                 class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer focus:outline-none focus:border-indigo-500 focus:ring-indigo-500" required>
                                                         </div>
                                                         <div class="flex justify-end">

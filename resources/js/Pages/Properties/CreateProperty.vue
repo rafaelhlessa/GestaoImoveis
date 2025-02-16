@@ -12,6 +12,8 @@ const props = defineProps({
 const typeOwners = ref(props.typeOwners);
 const users = ref(props.users);
 
+const docDate = ref(false);
+
 const alert = reactive({
     show: false,
     message: '',
@@ -364,10 +366,17 @@ const handleDocumentUpload = async (event) => {
     const file = event.target.files[0];
 
     // Verifica se o arquivo é um tipo permitido
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const allowedTypes = [
+        'application/pdf', 
+        'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+        'application/vnd.google-earth.kml+xml',
+        'application/vnd.google-earth.kmz',
+        'application/octet-stream'
+    ]     
     
     if (!allowedTypes.includes(file.type)) {
-        alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx)";
+        alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx, .kmz, .kml)";
         alert.show = true;
         alert.type = "warning";
         alert.color = "yellow";
@@ -688,7 +697,7 @@ watch(
                                             </div>
 
                                             <div class="sm:col-span-3 col-span-full">
-                                                <label for="locality" class="block text-sm font-medium text-gray-900">Localidade</label>
+                                                <label for="locality" class="block text-sm font-medium text-gray-900">{{form.type_property === 1 ? 'Bairro' : 'Localidade'}}</label>
                                                 <div class="mt-2">
                                                     <input type="text" name="locality" id="locality" v-model="form.locality"
                                                         class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 sm:text-sm" />
@@ -879,6 +888,22 @@ watch(
                                                                 class="mt-1 block w-full text-gray-700 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
                                                         </div>
                                                         <div class="mb-4">
+                                                            <legend class="text-sm/6 font-semibold text-gray-900">Documento possui validade?</legend>
+                                                            <div class="mt-3 space-y-3">
+                                                                <div class="flex items-center gap-x-1">
+                                                                    <input id="push-docValidate"
+                                                                        name="push-docValidate" type="radio" v-model="docDate" :value="true"
+                                                                        class="relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white not-checked:before:hidden checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-gray-400 forced-colors:appearance-auto forced-colors:before:hidden" />
+                                                                    <label for="push-docValidate" class="block text-sm/6 font-medium text-gray-900">Sim</label>
+                                                                </div>
+                                                                <div class="flex items-center gap-x-1">
+                                                                    <input id="push-docValidate" name="push-docValidate" type="radio" v-model="docDate" :value="false"
+                                                                        class="relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white not-checked:before:hidden checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-gray-400 forced-colors:appearance-auto forced-colors:before:hidden" />
+                                                                    <label for="push-docValidate" class="block text-sm/6 font-medium text-gray-900">Não</label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div v-if="docDate === true" class="mb-4">
                                                             <label for="document-date"
                                                                 class="block text-sm font-medium text-gray-700">Data de Vencimento</label>
                                                             <input type="date" id="document-date" v-model="newDocument.date"
