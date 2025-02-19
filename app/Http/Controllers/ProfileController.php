@@ -29,10 +29,18 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        // dd($request);
+        
+        $cpf_cnpj = preg_replace('/[^0-9]/', '', $request->cpf_cnpj);
+        $phone = preg_replace('/[^0-9]/', '', $request->phone);
+        $profile = $request->profile_id;
+        $request->merge([
+            'cpf_cnpj' => $cpf_cnpj,
+            'phone' => $phone,
+            'profile_id' => $profile,
+        ]);
         $user = $request->user();
         $user->fill($request->all());
-
+        // dd($request->all());
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
         }

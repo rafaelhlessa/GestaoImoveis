@@ -8,22 +8,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Property extends Model
 {
-    protected $fillable = ['is_active', 'title_deed', 'title_deed_number', 'other', 'area', 'unit', 'type_property', 'city', 'city_id', 'district', 'locality', 'nickname', 'about', 'file_photo'];
-
-    // protected $casts = [
-    //     'area' => 'float',
-    //     'city_id' => 'integer',
-    // ];
+    protected $fillable = ['is_active', 'title_deed', 'title_deed_number', 'other', 'area', 'unit', 'type_property', 'address', 'city', 'city_id', 'district', 'locality', 'nickname', 'about', 'file_photo'];
 
     public function owners(): BelongsToMany
     {
-        // return $this->belongsToMany(User::class, 'property_user', 'property_id', 'user_id')
-        //             ->withPivot('type_ownership_id', 'percentage', 'other')
-        //             ->withTimestamps();
         return $this->belongsToMany(User::class, 'property_user', 'property_id', 'user_id')
             ->withPivot('type_ownership_id', 'percentage', 'other')
             ->withTimestamps();
-            // ->with('typeOwnership'); // 🚀 Carrega o relacionamento sem precisar de join()
     }
 
     public function typeOwnerships(): BelongsToMany

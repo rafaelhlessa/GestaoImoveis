@@ -276,6 +276,7 @@ const form = useForm({
     other: props.property.other,
     area: props.property.area,
     unit: props.property.unit,
+    address: props.property.address,
     city: props.property.city,
     city_id: props.property.city_id,
     district: props.property.district,
@@ -383,19 +384,19 @@ const addDocument = () => {
     if (isAdding.value) return; // Se já está adicionando, impede outra chamada
     isAdding.value = true; // Bloqueia novas execuções enquanto processa
 
-    // if (!newDocument.value.file) {
-    //     alert.message = "Por favor, selecione um arquivo válido antes de adicionar.";
-    //     alert.show = true;
-    //     alert.type = "warning";
-    //     alert.color = "yellow";
-    //     setTimeout(() => {
-    //             alert.show = false;
-    //         }, 3000);
-    //     isAdding.value = false; // Libera novamente para nova tentativa
-    //     return;
-    // }
+    if (!newDocument.value.file) {
+        alert.message = "Por favor, selecione um arquivo válido antes de adicionar.";
+        alert.show = true;
+        alert.type = "warning";
+        alert.color = "yellow";
+        setTimeout(() => {
+                alert.show = false;
+            }, 3000);
+        isAdding.value = false; // Libera novamente para nova tentativa
+        return;
+    }
 
-    const documentDate = newDocument.value.date ? newDocument.value.date : "Sem Data"; // Define uma data padrão se não informada
+    const documentDate = newDocument.value.date ? newDocument.value.date : null; // Define uma data padrão se não informada
 
     documents.value.push({
         name: newDocument.value.name,
@@ -750,7 +751,15 @@ watch(
                                                 </div>
                                             </div>
 
-                                            <div class="sm:col-span-4 col-span-full">
+                                            <div class="sm:col-span-6 col-span-full">
+                                                <label for="address" class="block text-sm font-medium text-gray-900">Endereço</label>
+                                                <div class="mt-2">
+                                                    <input type="text" name="address" id="address" v-model="form.address"
+                                                        class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 sm:text-sm" />
+                                                </div>
+                                            </div>
+
+                                            <div class="sm:col-span-6 col-span-full">
                                                 <label for="city" class="block text-sm font-medium text-gray-900">Município/Estado
                                                 </label>
                                                 <div class="mt-2">
@@ -773,7 +782,7 @@ watch(
                                                 </div>
                                             </div>
 
-                                            <div class="sm:col-span-2 col-span-full">
+                                            <div class="sm:col-span-4 col-span-full">
                                                 <label for="district" class="block text-sm font-medium text-gray-900">Distrito</label>
                                                 <div class="mt-2">
                                                     <input type="text" name="district" id="district" v-model="form.district"
@@ -781,7 +790,7 @@ watch(
                                                 </div>
                                             </div>
 
-                                            <div class="sm:col-span-3 col-span-full">
+                                            <div class="sm:col-span-4 col-span-full">
                                                 <label for="locality" class="block text-sm font-medium text-gray-900">{{form.type_property === 1 ? 'Bairro' : 'Localidade'}}</label>
                                                 <div class="mt-2">
                                                     <input type="text" name="locality" id="locality" v-model="form.locality"
@@ -789,7 +798,7 @@ watch(
                                                 </div>
                                             </div>
 
-                                            <div class="sm:col-span-3 col-span-full">
+                                            <div class="sm:col-span-4 col-span-full">
                                                 <label for="nickname" class="block text-sm font-medium text-gray-900">Apelido</label>
                                                 <div class="mt-2">
                                                     <input type="text" name="nickname" id="nickname" v-model="form.nickname"
@@ -875,7 +884,7 @@ watch(
                                                 <tbody class="bg-white divide-y divide-gray-200">
                                                     <tr v-for="(document, index) in documents" :key="index" class="bg-white border-b dark:bg-gray-600 dark:border-gray-700">
                                                         <td class="px-6 py-4 text-gray-900 dark:text-white">{{ document.name }}</td>
-                                                        <td class="px-6 py-4 text-gray-900 dark:text-white">{{ document.date === "Sem Data" ? "Sem Data" : new Date(document.date).toLocaleDateString('pt-BR') }}</td>
+                                                        <td class="px-6 py-4 text-gray-900 dark:text-white">{{ document.date === null ? "Sem Data" : new Date(document.date).toLocaleDateString('pt-BR') }}</td>
                                                         <td class="px-6 py-4 text-gray-900 dark:text-white">{{ document.show === true ? 'Sim' : 'Não' }}</td>
                                                         <td class="px-6 py-4 text-gray-900 dark:text-white">{{ document.file_name }}</td>
                                                         <td class="px-6 py-4 text-gray-900 dark:text-white">

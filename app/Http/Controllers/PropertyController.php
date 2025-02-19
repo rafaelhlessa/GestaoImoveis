@@ -11,7 +11,6 @@ use App\Models\PropertyUser;
 use App\Models\Authorization;
 use App\Models\TypeOwnership;
 use Illuminate\Support\Facades\DB;
-use Mockery\Matcher\Type;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
 
@@ -64,6 +63,7 @@ class PropertyController extends Controller
             'other' => 'nullable|string|max:255',
             'area' => 'required|string|max:255',
             'unit' => 'required|string|max:255',
+            'address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'city_id' => 'required|integer',
             'district' => 'nullable|string|max:255',
@@ -152,7 +152,7 @@ class PropertyController extends Controller
                 ->where('can_create_properties', true)
                 ->exists();
             // dd($hasAccess);
-            dd($canEdit);
+            
         } 
         // // 🔹 Se for outro tipo de usuário, verifica permissões adicionais
         // else {
@@ -213,6 +213,7 @@ class PropertyController extends Controller
             'other' => 'nullable|string|max:255',
             'area' => 'required|string|max:255',
             'unit' => 'required|string|max:255',
+            'address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'city_id' => 'required|integer',
             'district' => 'nullable|string|max:255',
@@ -245,6 +246,7 @@ class PropertyController extends Controller
             'other' => $request->other,
             'area' => $request->area,
             'unit' => $request->unit,
+            'address' => $request->address,
             'city' => $request->city,
             'city_id' => $request->city_id,
             'district' => $request->district,
@@ -259,8 +261,6 @@ class PropertyController extends Controller
     if ($request->has('file_photo') && $property->file_photo !== $request->file_photo) {
         $property->update(['file_photo' => $request->file_photo]);
     }
-
-    
 
     DB::transaction(function () use ($request, $property) {
         // Atualizar os dados da propriedade, exceto documentos e proprietários

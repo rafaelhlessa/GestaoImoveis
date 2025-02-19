@@ -186,7 +186,7 @@ const updateAuthorization = () => {
                                                 <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Nome</th>
                                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Contatos</th>
                                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Cidade</th>
+                                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Cidade/Atividade</th>
                                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Autorização</th>
                                                 <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-0">
                                                 <span class="sr-only">Edit</span>
@@ -202,18 +202,21 @@ const updateAuthorization = () => {
                                                     </div>
                                                     <div class="ml-4">
                                                     <div class="font-medium text-gray-900">{{ person.service_provider.name }}</div>
-                                                    <div class="mt-1 text-gray-500">{{ person.service_provider.email }}</div>
+                                                    <div class="mt-1 text-gray-500">{{ applyCpfCnpjMask(person.service_provider.cpf_cnpj) }}</div>
                                                     </div>
                                                 </div>
                                                 </td>
                                                 <td class="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
                                                 <div class="text-gray-900">{{ applyPhoneMask(person.service_provider.phone) }}</div>
-                                                <div class="mt-1 text-gray-500">{{ applyCpfCnpjMask(person.service_provider.cpf_cnpj) }}</div>
+                                                <div class="mt-1 text-gray-500">{{ person.service_provider.email }}</div>
                                                 </td>
                                                 <td class="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
                                                 <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Ativo</span>
                                                 </td>
-                                                <td class="whitespace-nowrap px-3 py-5 text-sm text-gray-500">{{ person.service_provider.city }}</td>
+                                                <td class="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
+                                                    <div class="text-gray-900">{{ person.service_provider.city }}</div>
+                                                    <div class="mt-1 text-gray-500">{{ person.activity.name }}</div>
+                                                </td>
                                                 <td class="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
                                                     <a href="#" @click="authProvider(person.id)" class="text-indigo-600 hover:text-indigo-900">
                                                         <div class="mt-1 flex items-center gap-x-1.5">

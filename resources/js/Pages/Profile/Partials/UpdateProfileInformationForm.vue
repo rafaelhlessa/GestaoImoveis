@@ -19,7 +19,7 @@ const profileForm = useForm({
     address: user.address || '',
     city: user.city || '',
     city_id: user.city_id || null,
-    type: user.type || '1',
+    profile_id: user.profile_id || null,
 });
 
 // Controle para cidades
@@ -37,6 +37,9 @@ onMounted(async () => {
             id: city.id,
             nome: `${city.nome} / ${city.microrregiao.mesorregiao.UF.sigla}`
         }));
+
+        profileForm.cpf_cnpj = applyCpfCnpjMask(profileForm.cpf_cnpj);
+        profileForm.phone = applyPhoneMask(profileForm.phone);
     } catch (error) {
         console.error('Erro ao buscar cidades:', error);
     } finally {
@@ -136,6 +139,7 @@ const applyPhoneMask = (value) => {
 watch(
     () => profileForm.phone,
     (newValue, oldValue) => {
+        console.log(newValue, oldValue, "TESTE");
         if (newValue && newValue !== oldValue) {
             profileForm.phone = applyPhoneMask(newValue);
         }
@@ -204,6 +208,8 @@ watch(
                     v-model="profileForm.cpf_cnpj"
                     autocomplete="off"
                 />
+
+                
 
                 <InputError class="mt-2" :message="profileForm.errors.cpf_cnpj" />
             </div>
@@ -282,7 +288,7 @@ watch(
                 <select
                     id="type"
                     class="mt-1 block rounded-md w-full"
-                    v-model="profileForm.type"
+                    v-model="profileForm.profile_id"
                     required
                 >
                     <option value="1">Proprietário</option>

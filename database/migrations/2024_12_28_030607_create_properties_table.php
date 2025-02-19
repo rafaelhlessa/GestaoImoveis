@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('other')->nullable();
             $table->string('area')->nullable();
             $table->string('unit')->nullable();
+            $table->string('address');
             $table->string('city');
             $table->integer('city_id');
             $table->string('district')->nullable();
@@ -27,6 +28,8 @@ return new class extends Migration
             $table->string('nickname')->nullable();
             $table->text('about')->nullable();
             $table->longText('file_photo')->nullable();
+            $table->integer('purchase_value')->nullable();
+            $table->date('purchase_date')->nullable();
             $table->timestamps();
         });
     }

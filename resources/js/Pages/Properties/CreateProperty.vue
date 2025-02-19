@@ -245,6 +245,7 @@ const form = useForm({
     other: '',
     area: '',
     unit: '',
+    address: '',
     city: '',
     city_id: null,
     district: '',
@@ -665,7 +666,15 @@ watch(
                                                 </div>
                                             </div>
 
-                                            <div class="sm:col-span-4 col-span-full">
+                                            <div class="sm:col-span-6 col-span-full">
+                                                <label for="address" class="block text-sm font-medium text-gray-900">Endereço</label>
+                                                <div class="mt-2">
+                                                    <input type="text" name="address" id="address" v-model="form.address"
+                                                        class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 sm:text-sm" />
+                                                </div>
+                                            </div>
+
+                                            <div class="sm:col-span-6 col-span-full">
                                                 <label for="city" class="block text-sm font-medium text-gray-900">Município/Estado
                                                 </label>
                                                 <div class="mt-2">
@@ -688,7 +697,7 @@ watch(
                                                 </div>
                                             </div>
 
-                                            <div class="sm:col-span-2 col-span-full">
+                                            <div class="sm:col-span-4 col-span-full">
                                                 <label for="district" class="block text-sm font-medium text-gray-900">Distrito</label>
                                                 <div class="mt-2">
                                                     <input type="text" name="district" id="district" v-model="form.district"
@@ -696,7 +705,7 @@ watch(
                                                 </div>
                                             </div>
 
-                                            <div class="sm:col-span-3 col-span-full">
+                                            <div class="sm:col-span-4 col-span-full">
                                                 <label for="locality" class="block text-sm font-medium text-gray-900">{{form.type_property === 1 ? 'Bairro' : 'Localidade'}}</label>
                                                 <div class="mt-2">
                                                     <input type="text" name="locality" id="locality" v-model="form.locality"
@@ -704,7 +713,7 @@ watch(
                                                 </div>
                                             </div>
 
-                                            <div class="sm:col-span-3 col-span-full">
+                                            <div class="sm:col-span-4 col-span-full">
                                                 <label for="nickname" class="block text-sm font-medium text-gray-900">Apelido</label>
                                                 <div class="mt-2">
                                                     <input type="text" name="nickname" id="nickname" v-model="form.nickname"
