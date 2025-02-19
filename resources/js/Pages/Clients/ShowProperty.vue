@@ -7,6 +7,7 @@ import { Disclosure, DisclosureButton, DisclosurePanel, TabGroup, TabPanel, TabP
 import { MinusIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
+import KmlMap from '@/Components/KmlMap.vue';
 
 const form = useForm({
     name: '',
@@ -36,6 +37,38 @@ const vTooltip = {
     if (el._tippyInstance) {
       el._tippyInstance.destroy();
     }
+  }
+};
+
+// Controle do modal e URL do KML
+const showKmlModal = ref(false);
+const selectedKmlUrl = ref(null);
+
+
+const openDocument = (document) => {
+  if (!document || !document.file_name) {
+    console.error('Documento inválido:', document);
+    return;
+  }
+
+  // Extrai a extensão do arquivo
+  const fileExtension = document.file_name.split('.').pop().toLowerCase();
+  const fileUrl = route('property.getDocument', document.id);
+  console.log("📌 URL do documento:", fileUrl);
+
+  if (fileExtension === 'kml' || fileExtension === 'kmz') {
+    // 🗺️ Abrir no modal do Leaflet
+    selectedKmlUrl.value = fileUrl;
+    showKmlModal.value = true;
+  } else if (fileExtension === 'pdf') {
+    // 📄 Abrir PDF em nova aba
+    window.open(fileUrl, '_blank');
+} else if (fileExtension === 'doc' || fileExtension === 'docx') {
+    // 📥 Baixar arquivo .doc ou .docx
+    window.open(fileUrl, '_blank');
+  } else {
+    // ⚠️ Tipo de arquivo desconhecido
+    alert('Formato de arquivo não suportado para visualização.');
   }
 };
 
@@ -74,18 +107,12 @@ const goToPropriety = (id) => {
 
 const showModalDocumentShow = ref(false);
 
-// const documentShow = (id) => {
-//     console.log(props.canEdit);
-//     router.patch(route('property.updateDocument', id), {
-//         show: !props.documents.find(doc => doc.id === id).show
-//     });
-//     showModalDocumentShow.value = false;
-// };
+const showDocumentShowModal = () => {
+    showModalDocumentShow.value = true;
+};
 
 onMounted(() => {
-    
     console.log(props.canCreate)
-    
 });
 
 const getOwnershipTypeName = (typeOwnershipId) => {
@@ -205,27 +232,83 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                                         <tr v-if="detail.show === 1">
                                                                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ detail.name }}</td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" v-tooltip="'Vencimento do documento'">{{ detail.date === null ? "Sem vencimento" : new Date(detail.date).toLocaleDateString('pt-BR') }}</td>
-                                                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center">
-                                                                            <span v-if="detail.show === 1" class="inline-flex items-center gap-x-1.5 rounded-md bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                                                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" @click="showDocumentShowModal" v-tooltip.top-start="'Clique para mudar a visibilidade do documento'">
+                                                                            <button v-if="detail.show === 1" class="inline-flex items-center gap-x-1.5 rounded-md bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
                                                                                 <svg class="size-1.5 fill-green-500" viewBox="0 0 6 6" aria-hidden="true">
                                                                                     <circle cx="3" cy="3" r="3" />
                                                                                 </svg>
                                                                                 Visível
-                                                                            </span>
-                                                                            <span v-else class="inline-flex items-center gap-x-1.5 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                                                                            </button>
+                                                                            <button v-else class="inline-flex items-center gap-x-1.5 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
                                                                                 <svg class="size-1.5 fill-red-500" viewBox="0 0 6 6" aria-hidden="true">
                                                                                     <circle cx="3" cy="3" r="3" />
                                                                                 </svg>
                                                                                 Não Visível
-                                                                            </span>
+                                                                            </button>
+                                                                            
+                                                                            <!-- {{ props.owners.find(owner => owner.id === $page.props.auth.user.id) ? ' - ' : '' }} -->
                                                                         </td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                                            <div class="flex items-center space-x-2" v-if="detail.show === 1" >
-                                                                                <a :href="getDocSrc(detail.file)" download :download="detail.file_name" v-tooltip="'Baixar documento'">
+                                                                            <div class="flex items-center space-x-2">
+                                                                                <button @click="openDocument(detail)" v-tooltip="'Visualizar documento'">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                                                                                     </svg>
-                                                                                </a>
+                                                                                </button>
+                                                                                                                                                                     
+
+                                                                                <!-- Modal Visualização Documento-->
+                                                                                <transition name="showModalDocumentShow">
+                                                                                    <div v-if="showModalDocumentShow" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                                                                                        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
+                                                                                            <h3 class="text-lg font-medium text-gray-900 mb-4">Acesso negado</h3>
+                                                                                            <p class="text-gray-500">Você não tem permissão para alterar a visibilidade de documentos.</p>
+                                                                                            <div class="flex justify-end mt-4">
+                                                                                                <button @click="showModalDocumentShow = false" class="bg-gray-600 text-white px-4 py-2 rounded">
+                                                                                                    Fechar
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </div>    
+                                                                                    </div>
+                                                                                </transition>
+
+                                                                                <!-- Modal para Visualizar KML -->
+                                                                                <transition name="modal">
+                                                                                    <div v-if="showKmlModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                                                                                        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-4xl">
+                                                                                            <h3 class="text-lg font-medium text-gray-900 mb-4">Visualização de KML</h3>
+
+                                                                                            <!-- Exibe o mapa apenas quando a URL do KML está carregada -->
+                                                                                            <KmlMap v-if="selectedKmlUrl" :kmlUrl="selectedKmlUrl" />
+                                                                                            <p v-else class="text-gray-500">Nenhum KML disponível para esta propriedade.</p>
+
+                                                                                            <div class="flex justify-end mt-4">
+                                                                                                <button @click="showKmlModal = false" class="bg-gray-600 text-white px-4 py-2 rounded">
+                                                                                                    Fechar
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </transition>
+
+                                                                                <!-- Modal para Visualizar KML -->
+                                                                                <transition name="modal">
+                                                                                    <div v-if="showKmlModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                                                                                        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-4xl">
+                                                                                            <h3 class="text-lg font-medium text-gray-900 mb-4">Visualização de KML</h3>
+
+                                                                                            <!-- Exibe o mapa apenas quando a URL do KML está carregada -->
+                                                                                            <KmlMap v-if="selectedKmlUrl" :kmlUrl="selectedKmlUrl" />
+                                                                                            <p v-else class="text-gray-500">Nenhum KML disponível para esta propriedade.</p>
+
+                                                                                            <div class="flex justify-end mt-4">
+                                                                                                <button @click="showKmlModal = false" class="bg-gray-600 text-white px-4 py-2 rounded">
+                                                                                                    Fechar
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </transition>
                                                                             </div>
                                                                         </td>
                                                                         </tr>

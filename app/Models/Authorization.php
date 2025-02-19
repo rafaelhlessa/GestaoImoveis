@@ -39,4 +39,11 @@ class Authorization extends Model
     {
         return $this->belongsTo(User::class, 'service_provider_id');
     }
+
+    // Relacionamento: Atividade
+    public function activity()
+    {
+        return $this->hasOneThrough(Activity::class, User::class, 'id', 'id', 'service_provider_id', 'activity_id');
+    }
+
 }

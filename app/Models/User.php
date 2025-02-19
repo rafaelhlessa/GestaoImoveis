@@ -120,9 +120,10 @@ class User extends Authenticatable
         );
     }
 
-    public function activity(): HasOne
+    public function activity()
     {
-        return $this->hasOne(Activity::class, 'id', 'activity_id');
+        return $this->belongsTo(Activity::class, 'activity_id', 'id');
     }
+
 
 }

@@ -96,6 +96,10 @@ const goToPropriety = (id) => {
 
 const showModalDocumentShow = ref(false);
 
+const showDocumentShowModal = () => {
+    showModalDocumentShow.value = true;
+};
+
 const documentShow = (id) => {
     // console.log(props.canEdit);
     router.patch(route('property.updateDocument', id), {
@@ -199,19 +203,21 @@ const documentShow = (id) => {
                                                                         <tr>
                                                                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ detail.name }}</td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" v-tooltip="'Vencimento do documento'">{{ detail.date === null ? "Sem Data" : new Date(detail.date).toLocaleDateString('pt-BR') }}</td>
-                                                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" v-tooltip.top-start="'Clique para mudar a visibilidade do documento'">
-                                                                            <span v-if="detail.show === 1" class="inline-flex items-center gap-x-1.5 rounded-md bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                                                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center" @click="showDocumentShowModal" v-tooltip.top-start="'Clique para mudar a visibilidade do documento'">
+                                                                            <button v-if="detail.show === 1" class="inline-flex items-center gap-x-1.5 rounded-md bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
                                                                                 <svg class="size-1.5 fill-green-500" viewBox="0 0 6 6" aria-hidden="true">
                                                                                     <circle cx="3" cy="3" r="3" />
                                                                                 </svg>
                                                                                 Visível
-                                                                            </span>
-                                                                            <span v-else class="inline-flex items-center gap-x-1.5 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                                                                            </button>
+                                                                            <button v-else class="inline-flex items-center gap-x-1.5 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
                                                                                 <svg class="size-1.5 fill-red-500" viewBox="0 0 6 6" aria-hidden="true">
                                                                                     <circle cx="3" cy="3" r="3" />
                                                                                 </svg>
                                                                                 Não Visível
-                                                                            </span>
+                                                                            </button>
+                                                                            
+                                                                            <!-- {{ props.owners.find(owner => owner.id === $page.props.auth.user.id) ? ' - ' : '' }} -->
                                                                         </td>
                                                                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                                                             <div class="flex items-center space-x-2">
@@ -225,11 +231,14 @@ const documentShow = (id) => {
                                                                                 <!-- Modal Visualização Documento-->
                                                                                 <transition name="showModalDocumentShow">
                                                                                     <div v-if="showModalDocumentShow" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                                                                                        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
-                                                                                            <h3 class="text-lg font-medium text-gray-900 mb-4">Tornar documento visível?</h3>
+                                                                                        <div v-if="props.owners.find(owner => owner.id === $page.props.auth.user.id)" class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
+                                                                                            
+                                                                                            <h3 v-if="detail.show === 0" class="text-lg font-medium text-gray-900 mb-4">Tornar documento visível?</h3>
+                                                                                            <h3 v-else class="text-lg font-medium text-gray-900 mb-4">Impedir a visualização do documento?</h3>
                                                                                             <div>
                                                                                                 <div class="mb-4">
-                                                                                                    <h3>Tornar o arquivo visível para prestadores de serviço?</h3>
+                                                                                                    <h3 v-if="detail.show === 0">Tornar o arquivo visível para prestadores de serviço?</h3>
+                                                                                                    <h3 v-else>Tornar o arquivo não visível para prestadores de serviço?</h3>
                                                                                                 </div>
                                                                                                 
                                                                                                 <div class="flex justify-end">
@@ -243,6 +252,15 @@ const documentShow = (id) => {
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>
+                                                                                        <div v-else class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
+                                                                                            <h3 class="text-lg font-medium text-gray-900 mb-4">Acesso negado</h3>
+                                                                                            <p class="text-gray-500">Você não tem permissão para alterar a visibilidade de documentos.</p>
+                                                                                            <div class="flex justify-end mt-4">
+                                                                                                <button @click="showModalDocumentShow = false" class="bg-gray-600 text-white px-4 py-2 rounded">
+                                                                                                    Fechar
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </div>    
                                                                                     </div>
                                                                                 </transition>
 
