@@ -13,8 +13,6 @@ use App\Models\TypeOwnership;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Auth\Middleware\Authorize;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PropertyController extends Controller
 {
@@ -123,24 +121,49 @@ class PropertyController extends Controller
      */
     public function show(Property $property)
     {
-        $this->authorize('view', $property);
-
-        // Busca a propriedade e verifica se existe
-        $property->load(['owners.typeOwnership', 'documents']);
-
         $user = auth()->user();
+        // $this->authorize('view', $property);
         
-        $canEdit = $user->can('update', $property);
+        // 🔹 Busca a propriedade e verifica se existe
+        $property = Property::with(['owners.typeOwnership', 'documents'])->find($property->id);
         
+        $canEdit = false;
+        
+        if (!$property) {
+            abort(404, 'Propriedade não encontrada.');
+        }
+
+        // 🔹 Se o usuário for proprietário, pode acessar diretamente
+        if ($user->profile_id === 1 || $user->profile_id === 3) {
+            $hasAccess = PropertyUser::where('property_id', $property->id)
+                ->where('user_id', $user->id)
+                ->exists();
+        } 
+        // 🔹 Se for prestador de serviço, verifica as autorizações
+        else {
+            $hasAccess = Authorization::where('service_provider_id', $user->id)
+            ->where('can_view_documents', true)
+            ->whereHas('owner.properties', function ($query) use ($id) {
+                $query->where('properties.id', $id); // 🛠 Especificamos a tabela properties
+            })
+            ->exists();
+
+            $canEdit = $user->profile_id === 2 && 
+                Authorization::where('service_provider_id', $user->id)
+                ->where('can_create_properties', true)
+                ->exists();
+            
+        } 
+        
+        // 🔹 Retorna a propriedade com os dados necessários
         return Inertia::render('Properties/ShowProperty', [
-        'property'           => $property,
-        'documents'          => $property->documents,
-        'owners'             => $property->owners,
-        'success'            => session('success'),
-        // Exemplo de flag genérica que você pode usar no front
-        'isServiceProvider'  => $user->profile_id === User::PROFILE_MANAGER,
-        'canEdit'            => $canEdit,
-    ]);
+            'property' => $property,
+            'documents' => $property->documents,
+            'owners' => $property->owners,
+            'success' => session('success'),
+            'isServiceProvider' => $user->profile_id === 2,
+            'canEdit' => $canEdit,
+        ]);
     }
 
     /**
