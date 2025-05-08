@@ -900,7 +900,7 @@ watch(
                                         <transition name="modalOwner">
                                             <div v-if="showModalOwner" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
                                                 <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
-                                                    <h3 class="text-lg font-medium text-gray-900 mb-4">Adicionar Documento</h3>
+                                                    <h3 class="text-lg font-medium text-gray-900 mb-4">Adicionar Proprietário</h3>
                                                     <div>
                                                         <div class="mb-4">
                                                             <label class="block text-sm font-medium text-gray-700">Buscar CPF/CNPJ</label>
@@ -1039,7 +1039,7 @@ watch(
                                 </div>
 
                                 <div class="mt-6 flex items-center justify-end gap-x-6">
-                                    <button type="button" class="text-sm/6 font-semibold text-gray-900">Cancelar</button>
+                                    <a :href="`/property`" class="text-sm/6 font-semibold text-gray-900">Cancelar</a>
                                     <button @click="updateForm" class="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-emerald-500 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Salvar</button>
                                 </div>
                             </form>

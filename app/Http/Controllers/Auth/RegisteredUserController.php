@@ -18,6 +18,8 @@ use Inertia\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Str;
+use App\Http\Requests\RegisterRequest;
+
 
 
 class RegisteredUserController extends Controller
@@ -37,39 +39,33 @@ class RegisteredUserController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(RegisterRequest $request): RedirectResponse
     {
-        
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'cpf_cnpj' => 'required|string|min:11|max:14',
-            'phone' => 'required|string|min:10|max:11',
-            'address' => 'required|string|max:255',
-            'city' => 'required|string|max:255',
-            'city_id' => 'required|integer',
-            'profile_id' => 'required|integer',
-            'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+       
+        $data = $request->validated();
 
         $user = User::create([
-            'name' => $request->name,
-            'cpf_cnpj' => $request->cpf_cnpj,
-            'profile_id' => $request->profile_id,
-            'activity_id' => $request->activity_id,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'city' => $request->city,
-            'city_id' => $request->city_id,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'activation_token' => Str::random(32), // Gerar o token de ativação
+            'name' => $data['name'],
+            'cpf_cnpj' => $data['cpf_cnpj'],
+            'profile_id' => $data['profile_id'],
+            'activity_id' => $data['activity_id'],
+            'phone' => $data['phone'],
+            'address' => $data['address'],
+            'city' => $data['city'],
+            'city_id' => $data['city_id'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'activation_token' => Str::random(32),
+            'activation_token_created_at' => now(),
+            'is_active' => false, // Importante: usuário inicia inativo
         ]);
 
         event(new Registered($user));
 
+        // Enviar email de ativação
         Mail::to($user->email)->send(new AccountActivation($user));
 
-        return Redirect::to('/');
+        return redirect()->route('login')
+            ->with('status', 'Enviamos um e-mail com instruções para ativar sua conta. Por favor, verifique sua caixa de entrada.');
     }
 }

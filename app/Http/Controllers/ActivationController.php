@@ -18,9 +18,12 @@ class ActivationController extends Controller
         }
 
         $user->update([
+            'is_active' => 1,
             'activation_token' => null,
             'email_verified_at' => now(),
         ]);
+
+        Auth::login($user);
 
         if($user->profile_id === 2) {
             return redirect()->route('providers.index')->with('status', 'Login realizado com sucesso!');

@@ -1,4 +1,4 @@
-<script setup>
+<!-- <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -98,4 +98,91 @@ const submit = () => {
             </div>
         </form>
     </GuestLayout>
+</template> -->
+
+<script setup>
+import { useForm, Head } from '@inertiajs/vue3';
+import AuthLayout from '@/Layouts/GuestLayoutLogin.vue';
+import TextInput from '@/Components/TextInput.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import InputError from '@/Components/InputError.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
+
+const props = defineProps({
+    email: String,
+    token: String,
+});
+
+const form = useForm({
+    email: props.email,
+    password: '',
+    password_confirmation: '',
+    token: props.token,
+});
+
+const submit = () => {
+    form.post(route('password.store'), {
+        onFinish: () => form.reset('password', 'password_confirmation'),
+    });
+};
+</script>
+
+<template>
+    <Head title="Redefinir Senha" />
+
+    <AuthLayout>
+        <form @submit.prevent="submit">
+            <div>
+                <InputLabel for="email" value="Email" />
+
+                <TextInput
+                    id="email"
+                    type="email"
+                    v-model="form.email"
+                    class="mt-1 block w-full"
+                    required
+                    autofocus
+                    autocomplete="username"
+                />
+
+                <InputError class="mt-2" :message="form.errors.email" />
+            </div>
+
+            <div class="mt-4">
+                <InputLabel for="password" value="Nova Senha" />
+
+                <TextInput
+                    id="password"
+                    type="password"
+                    v-model="form.password"
+                    class="mt-1 block w-full"
+                    required
+                    autocomplete="new-password"
+                />
+
+                <InputError class="mt-2" :message="form.errors.password" />
+            </div>
+
+            <div class="mt-4">
+                <InputLabel for="password_confirmation" value="Confirmar Senha" />
+
+                <TextInput
+                    id="password_confirmation"
+                    type="password"
+                    v-model="form.password_confirmation"
+                    class="mt-1 block w-full"
+                    required
+                    autocomplete="new-password"
+                />
+
+                <InputError class="mt-2" :message="form.errors.password_confirmation" />
+            </div>
+
+            <div class="flex items-center justify-end mt-6">
+                <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+                    Redefinir Senha
+                </PrimaryButton>
+            </div>
+        </form>
+    </AuthLayout>
 </template>

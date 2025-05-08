@@ -1,40 +1,40 @@
 <script setup>
-import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import AuthLayout from '@/Layouts/GuestLayoutLogin.vue';
+import TextInput from '@/Components/TextInput.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import InputError from '@/Components/InputError.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
 
-defineProps({
-    status: {
-        type: String,
-    },
-});
+const status = ref(null);
 
 const form = useForm({
     email: '',
 });
 
 const submit = () => {
-    form.post(route('password.email'));
+    form.post(route('password.email'), {
+        onSuccess: (page) => {
+            status.value = page.props.status;
+            form.reset();
+        },
+    });
 };
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Forgot Password" />
+    <Head title="Esqueceu a Senha" />
 
-        <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-            Forgot your password? No problem. Just let us know your email
-            address and we will email you a password reset link that will allow
-            you to choose a new one.
+    <AuthLayout>
+        <div>
+            
+        </div>
+        <div class="mb-4 text-sm text-gray-300 max-w-600">
+            <p>Informe seu endereço de e-mail e enviaremos um link para redefinição de senha.</p>
         </div>
 
-        <div
-            v-if="status"
-            class="mb-4 text-sm font-medium text-green-600 dark:text-green-400"
-        >
+        <div v-if="status" class="mb-4 font-medium text-sm text-green-400">
             {{ status }}
         </div>
 
@@ -45,8 +45,8 @@ const submit = () => {
                 <TextInput
                     id="email"
                     type="email"
-                    class="mt-1 block w-full"
                     v-model="form.email"
+                    class="mt-1 block w-full"
                     required
                     autofocus
                     autocomplete="username"
@@ -55,14 +55,11 @@ const submit = () => {
                 <InputError class="mt-2" :message="form.errors.email" />
             </div>
 
-            <div class="mt-4 flex items-center justify-end">
-                <PrimaryButton
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Email Password Reset Link
+            <div class="flex items-center justify-end mt-6">
+                <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+                    Enviar Link de Redefinição de Senha
                 </PrimaryButton>
             </div>
         </form>
-    </GuestLayout>
+    </AuthLayout>
 </template>

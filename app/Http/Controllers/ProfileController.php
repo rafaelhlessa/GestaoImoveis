@@ -30,24 +30,13 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         
-        $cpf_cnpj = preg_replace('/[^0-9]/', '', $request->cpf_cnpj);
-        $phone = preg_replace('/[^0-9]/', '', $request->phone);
-        $profile = $request->profile_id;
-        $request->merge([
-            'cpf_cnpj' => $cpf_cnpj,
-            'phone' => $phone,
-            'profile_id' => $profile,
-        ]);
         $user = $request->user();
-        $user->fill($request->all());
-        // dd($request->all());
+        $user->fill($request->validated());
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
         }
-
         $user->save();
-
-        return Redirect::route('profile.edit');
+        return Redirect::route('profile.edit')->with('status', 'Perfil atualizado com sucesso!');
     }
 
     /**
