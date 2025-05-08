@@ -23,8 +23,8 @@ Route::get('/', function () {
 });
 
 // 1️⃣ Registro
-Route::post('/register', [RegisteredUserController::class, 'store'])
-     ->name('register');
+// Route::post('/register', [RegisteredUserController::class, 'store'])
+//      ->name('register');
 
 // 2️⃣ Ativação
 Route::get('/activate/{token}', [ActivationController::class, 'activate'])
@@ -54,7 +54,7 @@ Route::post('login', [AuthenticatedSessionController::class, 'store'])
     ->middleware('guest', 'throttle:login,10,1');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    
+
     Route::get('/dashboard', [ServiceProviderController::class, 'index'])->name('dashboard');
 });
 
@@ -78,7 +78,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('property/document/kml/{id}', [PropertyController::class, 'getKmlDocument'])->name('property.getKmlDocument');
     Route::get('property/document/{id}', [PropertyController::class, 'getDocument'])->name('property.getDocument');
     Route::patch('property/property/{document}', [PropertyController::class, 'updateDocumentShow'])->name('property.updateDocument'); //Route PATCH to update the document show status
-});    
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

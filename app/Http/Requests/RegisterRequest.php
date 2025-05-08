@@ -30,7 +30,7 @@ class RegisterRequest extends FormRequest
             'city'                 => ['required', 'string', 'max:255'],
             'city_id'               => ['required', 'integer'],
             'profile_id'            => ['required', 'integer'],
-            'activity_id'           => ['nullable', 'integer', 'exists:activities,id'],
+            'activity_id'           => ['nullable', 'integer'],
             'email'                 => ['required', 'email', 'max:255', 'unique:users,email'],
             'password'              => ['required', 'confirmed', Rules\Password::defaults()],
         ];
