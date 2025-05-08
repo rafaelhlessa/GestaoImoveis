@@ -2,7 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { usePage, useForm, Head } from '@inertiajs/vue3';
 import { reactive, ref, onMounted, watch, defineProps, computed, nextTick } from 'vue';
-import { CheckCircleIcon, XMarkIcon, ExclamationTriangleIcon, XCircleIcon } from '@heroicons/vue/20/solid'
+import { CheckCircleIcon, XMarkIcon, ExclamationTriangleIcon, XCircleIcon } from '@heroicons/vue/20/solid';
+import axios from 'axios';
 
 const props = defineProps({
     typeOwners: Array,
@@ -28,7 +29,7 @@ const colors = {
     blue: "bg-blue-200 text-blue-800",
     yellow: "bg-yellow-100 text-yellow-800",
     gray: "bg-gray-200 text-gray-800",
-};     
+};
 
 // Computed Property para gerar a classe dinamicamente
 const alertClass = computed(() => colors[alert.color] || "bg-gray-200 text-gray-800");
@@ -51,7 +52,7 @@ const filteredUsers = ref([]);
 //     }
 // };
 const searchOwners = () => {
-    
+
     if (!searchTerm.value || searchTerm.value.length <= 10) {
         filteredUsers.value = [];
         return;
@@ -195,7 +196,7 @@ const addOwner = (event) => {
         }, 4000);
         return;
     }
-    
+
     // Adiciona o proprietário à lista com os dados fornecidos
     owners.value.push({
         id: selectedOwner.value.id,
@@ -213,7 +214,7 @@ const addOwner = (event) => {
     searchTerm.value = "";
     showModalOwner.value = false;
 
-    
+
     // Feedback de sucesso
     alert.message = "Proprietário adicionado com sucesso.";
     alert.show = true;
@@ -266,7 +267,7 @@ const saveForm = () => {
     });
 
     form.is_active = form.is_active === "Propriedade Ativa" ? 1 : 0;
-    
+
     if (form.owners.length === 0) {
         alert.message = "Deve ser adicionado no mínimo 1 proprietário a propriedade.";
         alert.show = true;
@@ -275,7 +276,7 @@ const saveForm = () => {
         setTimeout(() => {
                 alert.show = false;
             }, 4000);
-        return;    
+        return;
     }
 
     form.post('/property', {
@@ -368,14 +369,14 @@ const handleDocumentUpload = async (event) => {
 
     // Verifica se o arquivo é um tipo permitido
     const allowedTypes = [
-        'application/pdf', 
-        'application/msword', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.google-earth.kml+xml',
         'application/vnd.google-earth.kmz',
         'application/octet-stream'
-    ]     
-    
+    ]
+
     if (!allowedTypes.includes(file.type)) {
         alert.message = "Por favor, selecione um arquivo PDF ou Word (.pdf, .doc, .docx, .kmz, .kml)";
         alert.show = true;
@@ -422,10 +423,17 @@ onMounted(async () => {
     try {
         isLoadingCities.value = true;
         const response = await axios.get('https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome');
-        allCities.value = response.data.map(city => ({
+        // allCities.value = response.data.map(city => ({
+        //     id: city.id,
+        //     nome: `${city.nome} / ${city.microrregiao.mesorregiao.UF.sigla}`
+        // }));
+        allCities.value = response.data
+        .filter(city => city.microrregiao?.mesorregiao?.UF)
+        .map(city => ({
             id: city.id,
             nome: `${city.nome} / ${city.microrregiao.mesorregiao.UF.sigla}`
         }));
+    console.log('cidades carregadas:', allCities.value.length);
     } catch (error) {
         console.error('Erro ao buscar cidades:', error);
     } finally {
@@ -546,8 +554,8 @@ watch(
                                                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-700">{{ form.is_active = true ? "Propriedade Ativa" : "Propriedade Inativa"}}</span>
                                             </label>
                                         </div>
-                                        
-                                        
+
+
                                         <div class="mt-6 mb-12 grid grid-cols-1 gap-4 ">
                                             <!-- Linha do botão -->
                                             <div class="flex justify-start">
@@ -584,7 +592,7 @@ watch(
                                                             <td class="px-6 py-4 text-gray-900 dark:text-white">{{ owner.name }}</td>
                                                             <td class="px-6 py-4 text-gray-900 dark:text-white">{{ applyCpfCnpjMask(owner.cpf_cnpj) }}</td>
                                                             <td class="px-6 py-4 text-gray-900 dark:text-white">{{ owner.percent }}%</td>
-                                                            <td class="px-6 py-4 text-gray-900 dark:text-white">{{ props.typeOwners.find(type => type.id === owner.type_ownership)?.name  }}</td>   
+                                                            <td class="px-6 py-4 text-gray-900 dark:text-white">{{ props.typeOwners.find(type => type.id === owner.type_ownership)?.name  }}</td>
                                                             <td class="px-6 py-4 text-gray-900 dark:text-white">{{ owner.observations }}</td>
                                                             <td class="px-6 py-4">
                                                                 <button type="button" @click="removeOwner(owner.id)"
@@ -732,7 +740,7 @@ watch(
                                     </div>
                                     <div class="border-b border-gray-900/10 pb-12">
                                         <label for="document-photo" class="block text-sm font-medium text-gray-700">Foto da Propriedade</label>
-                                        <input type="file" id="document-photo" @change="handleFileChange" accept="image/*" 
+                                        <input type="file" id="document-photo" @change="handleFileChange" accept="image/*"
                                             class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer focus:outline-none focus:border-indigo-500 focus:ring-indigo-500" />
                                     </div>
 
@@ -752,7 +760,7 @@ watch(
                                                 <h2 v-if="form.type_property" class="text-white border border-red-800 p-2 rounded bg-red-600"><b>Documentos Obrigatórios para {{form.type_property === 2 ? 'Propriedades Rurais' : 'Imóveis Urbanos'  }}</b></h2>
                                                 <div v-if="form.type_property" class="mt-2 bg-red-600 border border-red-800 rounded p-2">
                                                     <p v-if="form.type_property === 2" class="mt-1 text-sm/6 text-white">
-                                                        <b>* Título de propriedade (matrícula/transcrição/outro)</b> 
+                                                        <b>* Título de propriedade (matrícula/transcrição/outro)</b>
                                                     </p>
                                                     <p v-if="form.type_property === 2" class="mt-1 text-sm/6 text-white">
                                                         <b>* ⁠CCIR</b>
@@ -772,7 +780,7 @@ watch(
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         </div>
 
                                         <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
@@ -852,7 +860,7 @@ watch(
                                                             <label for="type_ownership"
                                                                 class="block text-sm font-medium text-gray-900">Relação com o Propriedade</label>
                                                             <div class="mt-2">
-                                                                <select id="type_ownership" name="type_ownership" 
+                                                                <select id="type_ownership" name="type_ownership"
                                                                     v-model="selectedOwner.type_ownership"
                                                                     class="block w-full rounded-md bg-white px-3 py-2.5 text-base text-gray-900 placeholder:text-gray-400 sm:text-sm">
                                                                     <option v-for="type in props.typeOwners" :key="type.id" :value="type.id">{{type.name}}</option>
