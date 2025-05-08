@@ -19,12 +19,12 @@ class AccountActivation extends Mailable
 
     public function build()
     {
-        return $this->subject('Ative sua conta')
-                    ->view('emails.activate-account')
-                    ->with([
-                        'user' => $this->user,
-                        'activationLink' => url('/login/token/' . $this->user->activation_token),
-                        // 'activationLink' => url('/activate-account/' . $this->user->activation_token),
-                    ]);
+        return $this
+            ->subject("Ative sua conta em " . config('app.name'))
+            ->view('emails.activate-account')
+            ->with([
+                'name' => $this->user->name,
+                'activationLink' => route('activation.activate', ['token' => $this->user->activation_token]),
+            ]);
     }
 }

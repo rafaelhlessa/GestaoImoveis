@@ -12,6 +12,17 @@ const map = ref(null);
 const mapElement = ref(null);
 const kmlLayer = ref(null);
 
+const defaultIcon = L.icon({
+    iconUrl: '/storage/marker-icon.png',
+    shadowUrl: '/storage/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    tooltipAnchor: [16, -28],
+    shadowSize: [41, 41]
+});
+L.Marker.prototype.options.icon = defaultIcon;
+
 onMounted(() => {
   if (!mapElement.value) return;
 

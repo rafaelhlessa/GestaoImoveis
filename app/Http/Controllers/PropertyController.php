@@ -13,6 +13,8 @@ use App\Models\TypeOwnership;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Auth\Middleware\Authorize;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PropertyController extends Controller
 {
@@ -119,85 +121,45 @@ class PropertyController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Property $property)
     {
+        $this->authorize('view', $property);
+
+        // Busca a propriedade e verifica se existe
+        $property->load(['owners.typeOwnership', 'documents']);
+
         $user = auth()->user();
-
-        // 🔹 Busca a propriedade e verifica se existe
-        $property = Property::with(['owners', 'documents'])->find($id);
         
-        $canEdit = false;
+        $canEdit = $user->can('update', $property);
         
-        if (!$property) {
-            abort(404, 'Propriedade não encontrada.');
-        }
-
-        // 🔹 Se o usuário for proprietário, pode acessar diretamente
-        if ($user->profile_id === 1 || $user->profile_id === 3) {
-            $hasAccess = PropertyUser::where('property_id', $id)
-                ->where('user_id', $user->id)
-                ->exists();
-        } 
-        // 🔹 Se for prestador de serviço, verifica as autorizações
-        else {
-            $hasAccess = Authorization::where('service_provider_id', $user->id)
-            ->where('can_view_documents', true)
-            ->whereHas('owner.properties', function ($query) use ($id) {
-                $query->where('properties.id', $id); // 🛠 Especificamos a tabela properties
-            })
-            ->exists();
-
-            $canEdit = $user->profile_id === 2 && 
-                Authorization::where('service_provider_id', $user->id)
-                ->where('can_create_properties', true)
-                ->exists();
-            // dd($hasAccess);
-            
-        } 
-        // // 🔹 Se for outro tipo de usuário, verifica permissões adicionais
-        // else {
-        //     $hasAccess = Authorization::where('service_provider_id', $user->id)
-        //     ->where('can_view_documents', true)
-        //     ->whereHas('owner.properties', function ($query) use ($id) {
-        //         $query->where('properties.id', $id); // 🛠 Especificamos a tabela properties
-        //     })
-        //     ->exists();
-        // }
-
-        
-        // // 🔹 Se o usuário não tem acesso, retorna erro 403
-        // if (!$hasAccess) {
-        //     abort(403, 'Acesso não autorizado.');
-        // }
-
-        // 🔹 Retorna a propriedade com os dados necessários
         return Inertia::render('Properties/ShowProperty', [
-            'property' => $property,
-            'documents' => $property->documents,
-            'owners' => $property->owners,
-            'success' => session('success'),
-            'isServiceProvider' => $user->profile_id === 2,
-            'canEdit' => $canEdit,
-        ]);
+        'property'           => $property,
+        'documents'          => $property->documents,
+        'owners'             => $property->owners,
+        'success'            => session('success'),
+        // Exemplo de flag genérica que você pode usar no front
+        'isServiceProvider'  => $user->profile_id === User::PROFILE_MANAGER,
+        'canEdit'            => $canEdit,
+    ]);
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(Property $property)
     {
         $property = Property::with([
             'documents',
             'owners',
             'typeOwnerships',
-        ])->findOrFail($id);
+        ])->findOrFail($property->id);
         
         return Inertia::render('Properties/EditProperty', [
             'property' => $property,
             'typeOwners' => TypeOwnership::all(),
             'users' => User::where('profile_id', '!=', 2)->get(),
-            'owners' => PropertyUser::with(['typeOwnership', 'user', 'property'])->where('property_id', $id)->get(),
-            'documents' => PropertyDocument::where('property_id', $id)->get(),
+            'owners' => PropertyUser::with(['typeOwnership', 'user', 'property'])->where('property_id', $property->id)->get(),
+            'documents' => PropertyDocument::where('property_id', $property->id)->get(),
         ]);
     }
 
@@ -382,7 +344,7 @@ class PropertyController extends Controller
             // Obtém as propriedades do proprietário se tiver permissão
             $properties = Property::whereHas('owners', function ($query) use ($id) {
                 $query->where('user_id', $id);
-            })->with(['owners', 'authorizations'])->get();
+            })->with(['owners', 'authorizations'])->paginate(15)->get();
 
             return Inertia::render('Clients/IndexProperty', [
                 'properties' => $properties,
@@ -400,7 +362,7 @@ class PropertyController extends Controller
         $user = auth()->user();
 
         // 🔹 Busca a propriedade e verifica se existe
-        $property = Property::with(['owners', 'documents'])->find($id);
+        $property = Property::with(['owners.typeOwnership', 'documents'])->find($id);
         $typeOwnership = TypeOwnership::all();
 
         $canView = false;
