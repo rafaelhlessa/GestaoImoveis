@@ -45,7 +45,7 @@ const goToPropriety = (id) => {
                     Lista de Propriedades
                 </h1>
                 <div class="flex justify-end">
-                    <button v-if="authorized = true" @click="newPropriety" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <button @click="newPropriety" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Adicionar Propriedade
                     </button>
                 </div>

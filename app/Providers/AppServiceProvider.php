@@ -28,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
         // If you want to register policies here, use Gate::policy() instead
 
         Gate::policy(Property::class, PropertyPolicy::class);
+        Gate::define('isAdmin', fn (User $user) => (bool) $user->is_admin);
 
         Vite::prefetch(concurrency: 3);
 

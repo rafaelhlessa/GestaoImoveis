@@ -1,12 +1,17 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 
 const showingNavigationDropdown = ref(false);
+
+const { props } = usePage()
+const user = computed(() => page.props.auth?.user || {})
+
+console.log(usePage().props)
 </script>
 
 <template>
@@ -44,6 +49,14 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Propriedades
                                 </NavLink>
+
+                                <NavLink
+                                    v-if="$page.props.auth.user.profile_id != 2"
+                                    :href="route('criteria.index')"
+                                    :active="route().current('criteria.index')"
+                                >
+                                    Avaliações
+                                </NavLink>
                             </div>
                         </div>
 
@@ -76,6 +89,12 @@ const showingNavigationDropdown = ref(false);
                                     </template>
 
                                     <template #content>
+                                        <DropdownLink
+                                            v-if="$page.props.auth.user.is_admin"
+                                            :href="route('admin.dev.index')"
+                                            >
+                                            Painel Admin
+                                        </DropdownLink>
                                         <DropdownLink v-if="$page.props.auth.user.profile_id != 2"
                                             :href="route('authorizations.index', $page.props.auth.user.id)"
                                         >
