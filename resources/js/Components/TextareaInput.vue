@@ -15,29 +15,39 @@ const props = defineProps({
     type: String,
     default: 'text-gray-700'       // ex: '#fff', 'white' ou classes Tailwind como 'text-white'
   },
-});
-
-const input = ref(null);
-
-onMounted(() => {
-  if (input.value.hasAttribute('autofocus')) {
-    input.value.focus();
+  rows: {
+    type: Number,
+    default: 4            // Define o número de linhas padrão do textarea
+  },
+  resize: {
+    type: String,
+    default: 'vertical'   // Opções: 'none', 'both', 'horizontal', 'vertical'
   }
 });
 
-defineExpose({ focus: () => input.value.focus() });
+const textarea = ref(null);
+
+onMounted(() => {
+  if (textarea.value.hasAttribute('autofocus')) {
+    textarea.value.focus();
+  }
+});
+
+defineExpose({ focus: () => textarea.value.focus() });
 </script>
 
 <template>
-  <input
-    ref="input"
+  <textarea
+    ref="textarea"
     v-model="model"
+    :rows="rows"
     :style="{
       backgroundColor: props.bgColor,
-      color: props.textColor
+      color: props.textColor,
+      resize: props.resize
     }"
-    class="rounded-md border-gray-300 shadow-sm
+    class="w-full rounded-md border-gray-300 shadow-sm
            focus:border-indigo-500 focus:ring-indigo-500/50
            dark:border-gray-700 dark:focus:border-indigo-600 dark:focus:ring-indigo-600"
-  />
+  ></textarea>
 </template>

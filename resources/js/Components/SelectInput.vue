@@ -6,6 +6,17 @@ const model = defineModel({
     required: true,
 });
 
+const props = defineProps({
+  bgColor: {
+    type: String,
+    default: '#fff'       // ex: '#f00', 'rgb(10,20,30)' ou classes Tailwind como 'bg-red-500'
+  },
+  textColor: {
+    type: String,
+    default: 'text-gray-700'       // ex: '#fff', 'white' ou classes Tailwind como 'text-white'
+  },
+});
+
 const select = ref(null);
 
 onMounted(() => {
@@ -19,9 +30,15 @@ defineExpose({ focus: () => select.value.focus() });
 
 <template>
     <select
-        class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-indigo-600 dark:focus:ring-indigo-600"
-        v-model="model"
         ref="select"
+        v-model="model"
+        :style="{
+            backgroundColor: props.bgColor,
+            color: props.textColor
+        }"
+        class="rounded-md border-gray-300 shadow-sm 
+               focus:border-indigo-500 focus:ring-indigo-500
+               dark:border-gray-700 dark:focus:border-indigo-600 dark:focus:ring-indigo-600"
     >
         <slot />
     </select>

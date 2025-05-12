@@ -14,12 +14,14 @@ class ActivitySeeder extends Seeder
     public function run(): void
     {
         $activities = [
-            ['name' => 'Advogado'],
-            ['name' => 'Contador'],
-            ['name' => 'Corretor de Imóveis'],
-            ['name' => 'Despachante'],
-            ['name' => 'Engenheiro'],
-            ['name' => 'Outra Atividade'],
+            ['name' => 'Advogado', 'evaluation_permission' =>false],
+            ['name' => 'Contador', 'evaluation_permission' =>false],
+            ['name' => 'Corretor de Imóveis', 'evaluation_permission' =>true],
+            ['name' => 'Despachante', 'evaluation_permission' =>false],
+            ['name' => 'Engenheiro', 'evaluation_permission' =>false],
+            ['name' => 'Avaliador', 'evaluation_permission' =>true],
+            ['name' => 'Perito', 'evaluation_permission' =>true],
+            ['name' => 'Outra Atividade', 'evaluation_permission' =>false],
         ];
 
         // Insere os registros na tabela

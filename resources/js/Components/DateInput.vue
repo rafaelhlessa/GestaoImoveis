@@ -30,14 +30,16 @@ defineExpose({ focus: () => input.value.focus() });
 
 <template>
   <input
-    ref="input"
     v-model="model"
+    ref="input"
+    type="date"
     :style="{
       backgroundColor: props.bgColor,
       color: props.textColor
     }"
-    class="rounded-md border-gray-300 shadow-sm
+    class="rounded-md border-gray-300 shadow-sm 
            focus:border-indigo-500 focus:ring-indigo-500/50
-           dark:border-gray-700 dark:focus:border-indigo-600 dark:focus:ring-indigo-600"
+           dark:border-gray-600 dark:focus:border-indigo-600 dark:focus:ring-indigo-600"
+    
   />
 </template>
