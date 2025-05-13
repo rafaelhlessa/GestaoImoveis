@@ -12,6 +12,7 @@ use App\Http\Controllers\AuthorizationController;
 use App\Http\Controllers\ServiceProviderController;
 use App\Http\Middleware\ServiceProviderMiddleware;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\DevController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -22,33 +23,9 @@ Route::get('/', function () {
     ]);
 });
 
-// 1️⃣ Registro
-// Route::post('/register', [RegisteredUserController::class, 'store'])
-//      ->name('register');
-
-// 2️⃣ Ativação
+// Ativação
 Route::get('/activate/{token}', [ActivationController::class, 'activate'])
      ->name('activation.activate');
-
-// // Exibe o formulário para solicitar o link de redefinição de senha
-// Route::get('/forgot-password', [App\Http\Controllers\Auth\ForgotPasswordController::class, 'showLinkRequestForm'])
-//     ->middleware('guest')
-//     ->name('password.request');
-
-// // Processa o formulário e envia o email com o link de redefinição
-// Route::post('/forgot-password', [App\Http\Controllers\Auth\ForgotPasswordController::class, 'sendResetLinkEmail'])
-//     ->middleware('guest')
-//     ->name('password.email');
-
-// // Exibe o formulário de redefinição de senha
-// Route::get('/reset-password/{token}', [App\Http\Controllers\Auth\ForgotPasswordController::class, 'showResetForm'])
-//     ->middleware('guest')
-//     ->name('password.reset');
-
-// // Processa o formulário de redefinição de senha
-// Route::put('/reset-password', [App\Http\Controllers\Auth\ForgotPasswordController::class, 'reset'])
-//     ->middleware('guest')
-//     ->name('password.update');
 
 Route::post('login', [AuthenticatedSessionController::class, 'store'])
     ->middleware('guest', 'throttle:login,10,1');
@@ -86,6 +63,14 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+
+Route::middleware(['auth','can:isAdmin'])
+     ->prefix('admin')
+     ->name('admin.')
+     ->group(function () {
+         Route::get('/devs',   [DevController::class, 'index'])->name('dev.index');
+         Route::post('/dev',  [DevController::class, 'store'])->name('dev.store');
+     });
 
 
 require __DIR__.'/auth.php';

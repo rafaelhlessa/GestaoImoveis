@@ -76,6 +76,12 @@ const showingNavigationDropdown = ref(false);
                                     </template>
 
                                     <template #content>
+                                        <DropdownLink
+                                            v-if="$page.props.auth.user.is_admin"
+                                            :href="route('admin.dev.index')"
+                                            >
+                                            Painel Admin
+                                        </DropdownLink>
                                         <DropdownLink v-if="$page.props.auth.user.profile_id != 2"
                                             :href="route('authorizations.index', $page.props.auth.user.id)"
                                         >

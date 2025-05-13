@@ -295,10 +295,10 @@ async function createComponentFile() {
         <template #header>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <h1 class="text-2xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                    Critérios de Avaliação
+                    Critérios de FormComponent
                 </h1>
                 <div class="flex justify-end">
-                    <Link :href="route('criteria.create')" class="btn-primary">Novo Critério</Link>
+                    
                 </div>
             </div>
         </template>

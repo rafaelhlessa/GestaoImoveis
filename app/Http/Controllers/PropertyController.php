@@ -552,4 +552,6 @@ class PropertyController extends Controller
             ->header('Content-Disposition', in_array($extension, ['doc', 'docx']) ? 'attachment; filename="' . $fileName . '"' : 'inline; filename="' . $fileName . '"');
     }
 
+    
+
 }

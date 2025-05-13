@@ -14,6 +14,7 @@ class PropertyEvaluation extends Model
     protected $fillable = [
         'property_id',
         'user_id',
+        'appraiser',
         'valuation',
         'comments',
     ];
