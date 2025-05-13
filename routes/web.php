@@ -13,6 +13,7 @@ use App\Http\Controllers\ServiceProviderController;
 use App\Http\Middleware\ServiceProviderMiddleware;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DevController;
+use App\Http\Controllers\PropertyEvaluationController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -63,6 +64,21 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+Route::middleware(['auth'])->group(function() {
+    Route::resource(
+        'properties.evaluations',
+        PropertyEvaluationController::class
+    )->shallow()
+      ->names([
+         'index'   => 'properties.evaluations.index',
+         'create'  => 'properties.evaluations.create',
+         'store'   => 'properties.evaluations.store',
+         'show'    => 'properties.evaluations.show',
+         'edit'    => 'properties.evaluations.edit',
+         'update'  => 'properties.evaluations.update',
+         'destroy' => 'properties.evaluations.destroy',
+      ]);
+});      
 
 Route::middleware(['auth','can:isAdmin'])
      ->prefix('admin')

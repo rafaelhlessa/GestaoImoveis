@@ -32,10 +32,10 @@
                   <div class="mt-8 flow-root">
                     <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
                       <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                          <DataTable :data="criteria" :columns="columns">
+                          <DataTable :data="evaluations" :columns="columns">
                                 <template #actions="{ row }">
-                                <Link :href="route('criteria.edit', row.id)" class="btn-sm">Editar</Link>
-                                <button @click="destroy(row.id)" size="sm" variant="danger">Excluir</button>
+                                <!-- <Link :href="route('criteria.edit', row.id)" class="btn-sm">Editar</Link> -->
+                                <!-- <button @click="destroy(row.id)" size="sm" variant="danger">Excluir</button> -->
                                 </template>
                           </DataTable> 
                       </div>
@@ -57,27 +57,31 @@ import { Head, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import DataTable from '@/Components/DataTable.vue';
 
-const { props } = usePage()
-const criteria = ref(
-  props.criteria.map(item => ({
-    ...item,
-    weight: Number(item.weight),
-  }))
-)
+const props = defineProps({
+    evaluations: Array, // Recebe os dados da avaliação
+    properties: Object, // Recebe os dados da propriedade para edição
+
+});
+
+const test = ref([
+  { id: 1, name: 'Teste 1', weight: 1.23 },
+  { id: 2, name: 'Teste 2', weight: 4.56 },
+])
 const columns = [
-  { label: 'Nome', field: 'name' },
-  { label: 'Peso', field: 'weight', format: val => val.toFixed(2) },
+  { label: 'Nome', field: 'properties' },
+  { label: 'Peso', field: 'valuation'},
+  { label: 'Observações', field: 'comments'},
   { label: 'Ações', field: 'actions' },
 ]
 
-function destroy(id) {
-  if (confirm('Deseja realmente excluir?')) {
-    fetch(route('criteria.destroy', id), {
-      method: 'DELETE',
-      headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
-    }).then(() => window.location.reload())
-  }
-}
+// function destroy(id) {
+//   if (confirm('Deseja realmente excluir?')) {
+//     fetch(route('criteria.destroy', id), {
+//       method: 'DELETE',
+//       headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+//     }).then(() => window.location.reload())
+//   }
+// }
 </script>
 
 <style scoped>

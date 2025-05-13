@@ -11,22 +11,26 @@ use Illuminate\Routing\Controller as BaseController;
 
 class PropertyEvaluationController extends BaseController
 {
+    // use AuthorizesRequests;
+
     public function __construct()
     {
         $this->middleware('auth');
-        $this->authorizeResource(PropertyEvaluation::class, 'evaluation');
+        // $this->authorizeResource(PropertyEvaluation::class, 'evaluation');
     }
 
     // GET /properties/{property}/evaluations
     public function index(Property $property)
     {
-        $this->authorize('view', $property);
+        // $this->authorize('view', $property);
+        
+
         $evaluations = PropertyEvaluation::with('user')
             ->where('property_id', $property->id)
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return Inertia::render('Evaluations/Index', compact('property', 'evaluations'));
+        return Inertia::render('Properties/PropertyEvaluationList', compact('property', 'evaluations'));
     }
 
     // GET /properties/{property}/evaluations/create
@@ -76,7 +80,7 @@ class PropertyEvaluationController extends BaseController
     public function edit(Property $property, PropertyEvaluation $evaluation)
     {
         $this->authorize('update', $evaluation);
-        $criteria = EvaluationCriterion::orderBy('name')->get();
+        
         $evaluation->load('items');
 
         return Inertia::render('Evaluations/Edit', compact('property', 'evaluation', 'criteria'));
@@ -86,34 +90,13 @@ class PropertyEvaluationController extends BaseController
     public function update(Request $request, Property $property, PropertyEvaluation $evaluation)
     {
         $this->authorize('update', $evaluation);
-        $data = $request->validate([
-            'comments'             => 'nullable|string',
-            'notes'                => 'required|array',
-            'notes.*.criterion_id' => 'required|exists:evaluation_criteria,id',
-            'notes.*.note'         => 'required|numeric|min:0|max:10',
-            'notes.*.observation'  => 'nullable|string',
-        ]);
-
+        
         $evaluation->update(['comments' => $data['comments']]);
         $evaluation->items()->delete();
 
         $totalScore = 0;
         $totalWeight = 0;
-        foreach ($data['notes'] as $item) {
-            $criterion = EvaluationCriterion::find($item['criterion_id']);
-            $weight    = $criterion->weight;
-            $note      = $item['note'];
-
-            $evaluation->items()->create([
-                'criterion_id' => $criterion->id,
-                'note'         => $note,
-                'observation'  => $item['observation'] ?? null,
-            ]);
-
-            $totalScore  += $note * $weight;
-            $totalWeight += $weight;
-        }
-
+        
         if ($totalWeight > 0) {
             $evaluation->update(['score' => round($totalScore / $totalWeight, 2)]);
         }
