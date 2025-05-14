@@ -94,6 +94,14 @@ const goToPropriety = (id) => {
   router.get(route('property.edit', id));
 };
 
+const goToEvaluation = (id) => {
+  router.get(route('properties.evaluations.create', id));
+};
+
+const showEvaluationPropriety = (id) => {
+  router.get(route('properties.evaluations.index', id));
+};
+
 const showModalDocumentShow = ref(false);
 
 const showDocumentShowModal = () => {
@@ -297,6 +305,8 @@ const documentShow = (id) => {
                                         </section>
                                         <div class="flex justify-between items-end">
                                             <button @click="goToPropriety(props.property.id)" class="ml-auto bg-gray-600 border border-gray-700 rounded py-2 px-4 text-gray-50 hover:text-gray-100 hover:bg-gray-900">Editar Propriedade</button>
+                                            <button @click="goToEvaluation(props.property.id)" class="ml-auto bg-gray-600 border border-gray-700 rounded py-2 px-4 text-gray-50 hover:text-gray-100 hover:bg-gray-900">Avaliar Propriedade</button>
+                                            <button @click="showEvaluationPropriety(props.property.id)" class="ml-auto bg-gray-600 border border-gray-700 rounded py-2 px-4 text-gray-50 hover:text-gray-100 hover:bg-gray-900">Ver Avaliações</button>
                                         </div>
                                     </div>
                                 </div>

@@ -36,35 +36,44 @@ class PropertyEvaluationController extends BaseController
     // GET /properties/{property}/evaluations/create
     public function create(Property $property)
     {
-        $this->authorize('create', PropertyEvaluation::class);
-        
 
-        return Inertia::render('Evaluations/Create', compact('property'));
+        return Inertia::render('Properties/PropertyEvaluationForm', compact('property'));
     }
 
     // POST /properties/{property}/evaluations
-    public function store(Request $request, Property $property)
+    public function store(Request $request)
     {
-        $this->authorize('create', PropertyEvaluation::class);
-    
-
+        
+        // Validação dos dados do formulário
+        $validated = $request->validate([
+            'avaliador' => 'required|string',
+            'valor' => 'required|numeric',
+            'observações' => 'nullable|string',
+            'property_id' => 'required|exists:properties,id',
+        ]);
+        
         $evaluation = PropertyEvaluation::create([
-            'property_id' => $property->id,
+            'property_id' => $validated['property_id'],
             'user_id'     => auth()->id(),
-            'comments'    => $data['comments'] ?? null,
-            'valuation'       => 0,
+            'appraiser'   => $validated['avaliador'],
+            'comments'    => $validated['observações'] ?? null,
+            'valuation'   => $validated['valor'],
+            // Outros campos conforme necessário
         ]);
 
         $totalScore = 0;
         $totalWeight = 0;
-    
+        
+        // Seu código para cálculo de score, se necessário
 
         if ($totalWeight > 0) {
             $evaluation->update(['score' => round($totalScore / $totalWeight, 2)]);
         }
 
-        return redirect()->route('properties.evaluations.index', $property)
+        return redirect()->route('properties.evaluations.index', $request->property_id)
                          ->with('success', 'Avaliação registrada.');
+    
+
     }
 
     // GET /properties/{property}/evaluations/{evaluation}
@@ -108,7 +117,7 @@ class PropertyEvaluationController extends BaseController
     // DELETE /properties/{property}/evaluations/{evaluation}
     public function destroy(Property $property, PropertyEvaluation $evaluation)
     {
-        $this->authorize('delete', $evaluation);
+        // $this->authorize('delete', $evaluation);
         $evaluation->delete();
 
         return redirect()->route('properties.evaluations.index', $property)
