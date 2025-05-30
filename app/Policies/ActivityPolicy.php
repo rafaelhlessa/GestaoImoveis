@@ -3,11 +3,11 @@
 namespace App\Policies;
 
 use App\Models\User;
-use App\Models\PropertyEvaluation;
+use App\Models\Activity;
 use App\Models\Authorization;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-class PropertyEvaluationPolicy
+class ActivityPolicy
 {
     use HandlesAuthorization;
 
@@ -27,13 +27,13 @@ class PropertyEvaluationPolicy
         ]);
     }
 
-    public function view(User $user, PropertyEvaluation $propertyEvaluation)
+    public function view(User $user, Activity $activity)
     {
-        if ($user->id === $propertyEvaluation->owner_id) {
+        if ($user->id === $activity->owner_id) {
             return true;
         }
 
-        return Authorization::where('user_id', $propertyEvaluation->owner_id)
+        return Authorization::where('user_id', $activity->owner_id)
             ->where('authorized_user_id', $user->id)
             ->where('ativo', true)
             ->exists();
@@ -47,13 +47,13 @@ class PropertyEvaluationPolicy
         ]);
     }
 
-    public function update(User $user, PropertyEvaluation $propertyEvaluation)
+    public function update(User $user, Activity $activity)
     {
-        return $user->id === $propertyEvaluation->owner_id;
+        return $user->id === $activity->owner_id;
     }
 
-    public function delete(User $user, PropertyEvaluation $propertyEvaluation)
+    public function delete(User $user, Activity $activity)
     {
-        return $user->id === $propertyEvaluation->owner_id;
+        return $user->id === $activity->owner_id;
     }
 }

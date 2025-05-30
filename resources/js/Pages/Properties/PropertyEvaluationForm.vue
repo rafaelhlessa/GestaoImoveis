@@ -6,9 +6,7 @@
           Fazer Avaliação
         </h1>
         <div class="flex justify-end">
-          <button class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            Salvar
-          </button>
+          
         </div>
       </div>
     </template>
@@ -39,8 +37,22 @@
                               <input type="text" v-model="form.avaliador" id="avaliador" class="w-full rounded-md border px-3 py-2" />
                             </div>
                             <div class="col-span-6 m-2">
-                              <label for="valor" class="block mb-1 font-medium">Valor</label>
-                              <input type="text" v-model="form.valor" id="valor" class="w-full rounded-md border px-3 py-2" />
+                                <label for="valor" class="block mb-1 font-medium">Valor</label>
+                                <div class="flex">
+                                  <span class="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 border border-e-0 border-gray-300 rounded-s-md dark:bg-gray-600 dark:text-gray-400 dark:border-gray-600">
+                                    R$
+                                  </span>
+                                  <input 
+                                    type="text" 
+                                    v-model="displayValue"
+                                    @input="handleInput"
+                                    @blur="handleBlur"
+                                    @focus="handleFocus"
+                                    id="valor" 
+                                    class="rounded-none rounded-e-lg bg-gray-50 border border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-blue-500 block flex-1 min-w-0 w-full text-sm" 
+                                    placeholder="R$ 0,00"
+                                  />
+                                </div>
                             </div>
                             <div class="col-span-12 m-2">
                               <label for="observações" class="block mb-1 font-medium">Observações</label>
@@ -67,6 +79,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import PageLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { ref, watch } from 'vue';
 
 // Recebe a propriedade do componente
 const props = defineProps({
@@ -81,10 +94,88 @@ const form = useForm({
     "valor": "",
     "observações": "",
     "property_id": props.property.id  // Adicionado o property_id ao formulário
-  });
+});
+
+// Variável para armazenar o valor formatado para exibição
+const displayValue = ref('');
+
+// Função para formatar o valor como moeda brasileira
+function formatCurrency(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') {
+    return 'R$ 0,00';
+  }
+  
+  // Converte para número
+  const numValue = typeof value === 'string' ? Number(value.replace(/\D/g, '')) / 100 : Number(value);
+  
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(numValue);
+}
+
+// Função para extrair apenas os números de uma string
+function extractNumbers(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+// Manipula o evento de input
+function handleInput(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const value = extractNumbers(input.value);
+  
+  // Atualiza o valor no formulário (sem formatação)
+  if (value.length > 10) { // Limita a 999,999.99 (8 dígitos no total)
+    input.value = value.substring(0, 10);
+    form.valor = input.value;
+  } else {
+    // Atualiza o valor no formulário (sem formatação)
+    form.valor = value;
+  }
+  
+  // Atualiza o valor exibido
+  displayValue.value = value ? formatCurrency(value) : '';
+}
+
+// Manipula o evento de blur (quando o campo perde o foco)
+function handleBlur() {
+  displayValue.value = formatCurrency(form.valor);
+}
+
+// Manipula o evento de focus (quando o campo ganha o foco)
+function handleFocus(e: Event) {
+  const input = e.target as HTMLInputElement;
+  input.value = form.valor;
+  displayValue.value = form.valor;
+}
+
+// Observa mudanças no form.valor para manter displayValue sincronizado
+watch(() => form.valor, (newValue) => {
+  if (!document.activeElement || document.activeElement.id !== 'valor') {
+    displayValue.value = formatCurrency(newValue);
+  }
+});
+
+// Inicializa o displayValue
+displayValue.value = formatCurrency(form.valor);
 
 function submit() {
   console.log(form);
+
+  if (form.valor) {
+    // Convertendo de centavos para valor decimal (por exemplo: 56000000 -> 560000.00)
+    const valorNumerico = Number(form.valor) / 100;
+    
+    // Garantir que o valor esteja dentro do limite da coluna no banco de dados
+    if (valorNumerico > 99999999.99) {
+      alert('O valor excede o limite permitido.');
+      return;
+    }
+    
+    // Atualiza o form com o valor numérico correto
+    form.valor = valorNumerico.toString();
+  }
+
   // Corrigido para incluir o ID da propriedade na rota
   form.post(route('properties.evaluations.store', { property: props.property.id }), {
     onSuccess: () => {

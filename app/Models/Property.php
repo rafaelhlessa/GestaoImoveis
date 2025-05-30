@@ -5,10 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Traits\BelongsToProprietario;
 
 class Property extends Model
 {
     protected $fillable = ['is_active', 'title_deed', 'title_deed_number', 'other', 'area', 'unit', 'type_property', 'address', 'city', 'city_id', 'district', 'locality', 'nickname', 'about', 'file_photo'];
+
+    use BelongsToProprietario;
 
     public function owners(): BelongsToMany
     {
@@ -39,5 +42,15 @@ class Property extends Model
             'id',                 // PK da Property
             'user_id'             // FK na PropertyUser que referencia o Owner(User)
         );
+    }
+
+     protected static function booted()
+    {
+        static::bootBelongsToProprietario();
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
     }
 }

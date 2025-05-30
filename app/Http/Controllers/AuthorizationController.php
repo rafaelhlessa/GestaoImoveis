@@ -5,15 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Authorization;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
 class AuthorizationController extends Controller
 {
     public function index()
     {
-        if (auth()->user()->profile_id != 2) {
+        if (Auth::user()->profile_id != 2) {
             // $authorizations = Authorization::where('owner_id', auth()->id())->with('serviceProvider', 'activity')->get();
-            $authorizations = Authorization::where('owner_id', auth()->id())
+            $authorizations = Authorization::where('owner_id', Auth::user()->id)
             ->with(['serviceProvider', 'activity']) // Carregar activity corretamente
             ->get();
             // dd($authorizations);
@@ -26,9 +28,9 @@ class AuthorizationController extends Controller
 
     public function create()
     {
-        if (auth()->user()->profile_id != 2) {
+        if (Auth::user()->profile_id != 2) {
             $serviceProviders = User::where('profile_id', '>', 1)->get();
-            return Inertia::render('Authorizations/CreateAuthorization', ['serviceProviders' => $serviceProviders, 'user' => auth()->user()]);
+            return Inertia::render('Authorizations/CreateAuthorization', ['serviceProviders' => $serviceProviders, 'user' => Auth::user()]);
         } else {
             return Inertia::render('Dashboard');
         }
@@ -37,13 +39,13 @@ class AuthorizationController extends Controller
 
     public function store(Request $request)
     {
-        $existisProvider = Authorization::where('owner_id', auth()->user()->id)
+        $existisProvider = Authorization::where('owner_id', Auth::user()->id)
         ->where('service_provider_id', $request->service_provider_id)
         ->exists();
 
         $serviceProviders = User::where('profile_id', 2)->get();
         if ($existisProvider === true) {
-            return Inertia::render('Authorizations/CreateAuthorization', ['serviceProviders' => $serviceProviders, 'user' => auth()->user()])->with(['message' => 'Já existe uma autorização para este usuário.']);
+            return Inertia::render('Authorizations/CreateAuthorization', ['serviceProviders' => $serviceProviders, 'user' => Auth::user()])->with(['message' => 'Já existe uma autorização para este usuário.']);
         } else {
             $request->validate([
                 'service_provider_id' => 'required|exists:users,id',
@@ -52,7 +54,7 @@ class AuthorizationController extends Controller
             ]);
 
             Authorization::create([
-                'owner_id' => auth()->user()->id,
+                'owner_id' => Auth::user()->id,
                 'service_provider_id' => $request->service_provider_id,
                 'can_view_documents' => $request->can_view_documents,
                 'can_create_properties' => $request->can_create_properties,

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use Illuminate\Support\Facades\Auth;
 
 class User extends Authenticatable
 {
@@ -19,9 +20,9 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
 
-    public const PROFILE_ADMIN   = 1;
+    public const PROFILE_ADMIN   = 3;
     public const PROFILE_MANAGER = 2;
-    public const PROFILE_VIEWER  = 3;
+    public const PROFILE_VIEWER  = 1;
 
     /**
      * The attributes that are mass assignable.
@@ -125,9 +126,23 @@ class User extends Authenticatable
         );
     }
 
-    public function activity()
+    // public function activity()
+    // {
+    //     return $this->belongsTo(Activity::class, 'activity_id', 'id');
+        
+    // }
+    // Helper method to get authenticated user's activity
+    public static function getAuthenticatedUserActivity()
+    {            
+        if (Auth::check()) {
+            return Auth::user()->activity;
+        }
+            return null;
+    }
+    
+    public function activityUsers(): HasOne
     {
-        return $this->belongsTo(Activity::class, 'activity_id', 'id');
+        return $this->hasOne(Activity::class, 'activity_id', 'id');
     }
 
 

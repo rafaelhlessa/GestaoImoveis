@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\BelongsToProprietario;
 
 class PropertyEvaluation extends Model
 {
@@ -24,6 +25,18 @@ class PropertyEvaluation extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    use BelongsToProprietario;
+
+    protected static function booted()
+    {
+        static::bootBelongsToProprietario();
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
 
     /**
      * A propriedade avaliada.

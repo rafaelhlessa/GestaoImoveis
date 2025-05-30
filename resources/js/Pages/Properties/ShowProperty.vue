@@ -1,13 +1,26 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useForm } from '@inertiajs/vue3';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue'
 import { Disclosure, DisclosureButton, DisclosurePanel, RadioGroup, RadioGroupOption, Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/vue'
 import { MinusIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
 import KmlMap from '@/Components/KmlMap.vue';
+
+const { auth } = usePage().props;
+
+// Define props for the component
+const props = defineProps({
+    property: Object,
+    documents: Array,
+    owners: Array,
+    success: String,
+    authorization: Object,
+    canEdit: Boolean,
+    userActivity: Object, // Add prop to receive user activity data
+});
 
 const form = useForm({
     name: '',
@@ -72,15 +85,6 @@ const openDocument = (document) => {
   }
 };
 
-const props = defineProps({
-    property: Object,
-    documents: Array,
-    owners: Array,
-    success: String,
-    authorization: Object,
-    canEdit: Boolean,
-});
-
 const getImageSrc = (base64Data) => {
     if (!base64Data) return ''; // Se não houver imagem, retorna vazio para evitar erros
 
@@ -94,7 +98,20 @@ const goToPropriety = (id) => {
   router.get(route('property.edit', id));
 };
 
+
+
 const goToEvaluation = (id) => {
+    // Check if user has permission to evaluate properties
+    console.log('User Profile ID:', props);
+    // alert('User Evaluation Permission:', props);
+    
+    if (
+        !(auth.user.profile_id === 2 || auth.user.profile_id === 3) || 
+        !auth.user.activity?.evaluation_permission
+    ) {
+        alert('Você não tem permissão para avaliar propriedades.');
+        return; // Exit function early if no permission
+    }
   router.get(route('properties.evaluations.create', id));
 };
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use App\Models\Property;
 use App\Models\PropertyDocument;
@@ -13,6 +14,7 @@ use App\Models\TypeOwnership;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Auth;
 
 class PropertyController extends Controller
 {
@@ -21,7 +23,7 @@ class PropertyController extends Controller
      */
     public function index()
     {
-        $user = auth()->user();
+        $user = Auth::user();
             if ($user->profile_id === 1 || $user->profile_id === 3) {
                 // Usuário comum vê apenas suas próprias propriedades
                 $properties = Property::whereHas('owners', function ($query) use ($user) {
@@ -121,7 +123,9 @@ class PropertyController extends Controller
      */
     public function show(Property $property)
     {
-        $user = auth()->user();
+        Gate::authorize('view', $property);
+        
+        $user = Auth::user();
         // $this->authorize('view', $property);
         
         // 🔹 Busca a propriedade e verifica se existe
@@ -143,8 +147,8 @@ class PropertyController extends Controller
         else {
             $hasAccess = Authorization::where('service_provider_id', $user->id)
             ->where('can_view_documents', true)
-            ->whereHas('owner.properties', function ($query) use ($id) {
-                $query->where('properties.id', $id); // 🛠 Especificamos a tabela properties
+            ->whereHas('owner.properties', function ($query) use ($property) {
+                $query->where('properties.id', $property->id); // 🛠 Especificamos a tabela properties
             })
             ->exists();
 
@@ -335,7 +339,7 @@ class PropertyController extends Controller
 
     public function clientsProperty($id = null)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Busca o proprietário correspondente com seus relacionamentos
         $owner = User::where('id', $id)->with('typeOwnership')->firstOrFail();
@@ -382,7 +386,7 @@ class PropertyController extends Controller
 
     public function clientShow(string $id)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // 🔹 Busca a propriedade e verifica se existe
         $property = Property::with(['owners.typeOwnership', 'documents'])->find($id);
@@ -550,8 +554,6 @@ class PropertyController extends Controller
         return response($fileData, 200)
             ->header('Content-Type', $contentType)
             ->header('Content-Disposition', in_array($extension, ['doc', 'docx']) ? 'attachment; filename="' . $fileName . '"' : 'inline; filename="' . $fileName . '"');
-    }
-
-    
+    }  
 
 }
