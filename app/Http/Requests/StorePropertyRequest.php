@@ -5,6 +5,8 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use App\Models\User;
+use App\Models\Authorization;
+use App\Helpers\UserAccessHelper;
 
 class StorePropertyRequest extends FormRequest
 {
@@ -13,48 +15,26 @@ class StorePropertyRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // // return false;
-        // $user = $this->user();
-        // $ownerId = $this->input('owner_id');
 
-        // if (!$ownerId) {
-        //     return false;
-        // }
-
-        // if ($user->id === (int) $ownerId) {
-        //     return true;
-        // }
-
-        // return \App\Models\Authorization::where('user_id', $ownerId)
-        //     ->where('authorized_user_id', $user->id)
-        //     ->where('ativo', true)
-        //     ->exists();
-        $user = $this->user();
-        $ownerId = $this->input('owner_id');
-
-        if (!$ownerId) {
-            return false;
-        }
-
+        $authUser = $this->user();
+        $ownerId = $this->input('owner_id') ?? $authUser->id;
         $owner = \App\Models\User::find($ownerId);
+
         if (!$owner) {
             return false;
         }
 
-        return $user->id === $ownerId
-            || $user->cpf === $owner->cpf
-            || \App\Models\Authorization::where('user_id', $ownerId)
-                ->where('authorized_user_id', $user->id)
-                ->where('ativo', true)
-                ->exists();
+        return \App\Helpers\UserAccessHelper::canCreateForOwner($authUser, $owner);
+
     }
 
     protected function prepareForValidation()
     {
-        $this->merge([
-            'cpf_cnpj' => preg_replace('/\D+/', '', $this->cpf_cnpj),
-            'phone' => preg_replace('/\D+/', '', $this->phone),
-        ]);
+        if (!$this->has('owner_id') && auth()->check()) {
+            $this->merge([
+                'owner_id' => auth()->id(),
+            ]);
+        }
     }
 
     /**
@@ -65,25 +45,22 @@ class StorePropertyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
-            'email' => ['required','email','max:255',Rule::unique(User::class)->ignore($this->user()->id)],
-            'cpf_cnpj' => 'required|digits_between:11,14',
-            'phone' => 'required|digits_between:10,11',
+            'owner_id' => ['nullable', 'exists:users,id'],
             'is_active' => 'boolean',
-            'title_deed' => 'nullable|string|max:255',
-            'title_deed_number' => 'nullable|string|max:100',
+            'title_deed' => ['required', 'integer'],
+            'type_property' => ['required', 'integer'],
             'other' => 'nullable|string|max:255',
             'area' => 'nullable|numeric|min:0',
             'unit' => 'nullable|string|max:50',
-            'type_property' => 'nullable|string|max:100',
+            'type_property' => 'nullable|integer|max:100',
             'address' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
-            'city_id' => 'nullable|integer|exists:cities,id',
+            'city_id' => 'nullable|integer',
             'district' => 'nullable|string|max:100',
             'locality' => 'nullable|string|max:100',
             'nickname' => 'nullable|string|max:100',
             'about' => 'nullable|string',
-            'file_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048'
+            'file_photo' => ['nullable', 'string'],
         ];
     }
 

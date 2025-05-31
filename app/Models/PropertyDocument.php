@@ -10,7 +10,7 @@ use App\Traits\BelongsToProprietario;
 
 class PropertyDocument extends Model
 {
-    protected $table = 'property_document';
+    protected $table = 'property_documents';
 
     protected $fillable = [
         'name', 'date', 'show', 'file', 'file_name', 'property_id'

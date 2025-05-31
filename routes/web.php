@@ -51,7 +51,7 @@ Route::get('/view-email/activate-account', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('property', PropertyController::class);
-    Route::get('propertyNew/{id?}', [PropertyController::class, 'clientsProperty'])->name('clients.property');
+    Route::get('propertyNew/{id}', [PropertyController::class, 'clientsProperty'])->name('clients.property');
     Route::get('propertyShow/{id?}', [PropertyController::class, 'clientShow'])->name('clients.show');
     Route::get('property/document/kml/{id}', [PropertyController::class, 'getKmlDocument'])->name('property.getKmlDocument');
     Route::get('property/document/{id}', [PropertyController::class, 'getDocument'])->name('property.getDocument');
@@ -78,7 +78,7 @@ Route::middleware(['auth'])->group(function() {
          'update'  => 'properties.evaluations.update',
          'destroy' => 'properties.evaluations.destroy',
       ]);
-});      
+});
 
 Route::middleware(['auth','can:isAdmin'])
      ->prefix('admin')

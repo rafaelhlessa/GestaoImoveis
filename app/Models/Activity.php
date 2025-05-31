@@ -15,7 +15,7 @@ class Activity extends Model
 
     protected static function booted()
     {
-        static::bootBelongsToProprietario();
+        // static::bootBelongsToProprietario();
     }
 
     public function owner()

@@ -6,6 +6,7 @@ use App\Models\Property;
 use App\Models\User;
 use App\Models\Authorization;
 use Illuminate\Auth\Access\HandlesAuthorization;
+use App\Helpers\UserAccessHelper;
 
 class PropertyPolicy
 {
@@ -38,25 +39,12 @@ class PropertyPolicy
 
     public function create(User $user, ?User $owner = null): bool
     {
-        if ($owner) {
-            return $user->id === $owner->id ||
-                Authorization::where('user_id', $owner->id)
-                ->where('authorized_user_id', $user->id)
-                ->where('ativo', true)
-                ->exists();
-        }
-
-        return in_array($user->profile_id, [
-            User::PROFILE_ADMIN,
-            User::PROFILE_MANAGER,
-        ]);
+        return true;
     }
 
     public function update(User $user, Property $property)
     {
-        if (!$owner) return true;
-
-        return $user->id === $owner->id || $user->cpf === $owner->cpf;
+        return UserAccessHelper::canAccessOwner($user, $property->owner);
     }
 
     public function delete(User $user, Property $property)

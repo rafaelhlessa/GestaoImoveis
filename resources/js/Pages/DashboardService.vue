@@ -14,7 +14,8 @@ const props = defineProps({
 });
 
 const property = (id) => {
-    router.get(route('clients.property', id));
+    console.log(id);
+    router.get(route('clients.property', { id }));
 }
 
 // Função para aplicar a máscara de Telefone
@@ -69,7 +70,7 @@ const applyPhoneMask = (value) => {
                                                             </div>
                                                             <p class="mt-1 truncate text-sm text-gray-500">{{client.city}}</p>
                                                         </div>
-                                                        
+
                                                         <img class="size-10 shrink-0 rounded-full bg-gray-300 ring-2 ring-gray-300" src="/storage/user.jpg" alt="">
                                                         </div>
                                                         <div>
@@ -101,7 +102,7 @@ const applyPhoneMask = (value) => {
                                                     <h2 class="text-2xl font-semibold text-gray-900">Nenhum cliente encontrado</h2>
                                                     <p class="mt-2 text-sm text-gray-600">Não há clientes cadastrados.</p>
                                                 </div>
-                                            </div>    
+                                            </div>
                                         </div>
                                     </div>
                             </div>
