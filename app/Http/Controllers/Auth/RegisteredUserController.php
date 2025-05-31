@@ -41,7 +41,7 @@ class RegisteredUserController extends Controller
      */
     public function store(RegisterRequest $request): RedirectResponse
     {
-       
+
         $data = $request->validated();
 
         $user = User::create([
@@ -65,7 +65,7 @@ class RegisteredUserController extends Controller
         // Enviar email de ativação
         Mail::to($user->email)->send(new AccountActivation($user));
 
-        return redirect()->route('/')
+        return redirect()->route('login')
             ->with('status', 'Enviamos um e-mail com instruções para ativar sua conta. Por favor, verifique sua caixa de entrada.');
     }
 }

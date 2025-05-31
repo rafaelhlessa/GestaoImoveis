@@ -3,28 +3,31 @@
 namespace App\Traits;
 
 use Illuminate\Database\Eloquent\Builder;
-use App\Models\Authorization;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Authorization;
 
 trait BelongsToProprietario
 {
-    protected static function bootBelongsToProprietario()
+    public function scopeOfProprietario(Builder $query): Builder
     {
-        static::addGlobalScope('owner', function (Builder $builder) {
-            if (!Auth::check()) return;
+        // if (!Auth::check()) return $query;
 
-            $user = Auth::user();
-            $ownerIds = [$user->id];
+        // $user = Auth::user();
+        // $ownerIds = [$user->id];
 
-            // Inclui IDs de usuários que autorizaram o atual
-            $autorizacoes = Authorization::where('authorized_user_id', $user->id)
-                ->where('ativo', true)
-                ->pluck('user_id')
-                ->toArray();
+        // // IDs de usuários que autorizaram o atual
+        // $autorizados = Authorization::where('authorized_user_id', $user->id)
+        //     ->where('ativo', true)
+        //     ->pluck('user_id')
+        //     ->toArray();
 
-            $ownerIds = array_unique(array_merge($ownerIds, $autorizacoes));
+        // $ownerIds = array_merge($ownerIds, $autorizados);
 
-            $builder->whereIn('owner_id', $ownerIds);
-        });
+        // return $query->whereIn('owner_id', $ownerIds);
+        $userId = $userId ?: auth()->id();
+        return $query->where('user_id', $userId)
+                    ->orWhereHas('authorizedUsers', function ($q) use ($userId) {
+                        $q->where('user_id', $userId);
+                    });
     }
 }
