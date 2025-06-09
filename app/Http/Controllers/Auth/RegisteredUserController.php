@@ -41,7 +41,7 @@ class RegisteredUserController extends Controller
      */
     public function store(RegisterRequest $request): RedirectResponse
     {
-       
+
         $data = $request->validated();
 
         $user = User::create([
@@ -59,6 +59,10 @@ class RegisteredUserController extends Controller
             'activation_token_created_at' => now(),
             'is_active' => false, // Importante: usuário inicia inativo
         ]);
+
+        if (!empty($data['activity_id'])) {
+            $userData['activity_id'] = $data['activity_id'];
+        }
 
         event(new Registered($user));
 
