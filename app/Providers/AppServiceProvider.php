@@ -20,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
 {
 
     protected $policies = [
+        Property::class => PropertyPolicy::class,
         PropertyDocument::class => PropertyDocumentPolicy::class,
         PropertyEvaluation::class => PropertyEvaluationPolicy::class,
         Activity::class => ActivityPolicy::class,
@@ -53,7 +54,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user, $ability) {
             Log::debug('Gate::before', [
                 'user_id' => $user->id,
-                'ability' => $ability
+                'ability' => $ability,
+                'is_active' => $user->is_active,
             ]);
             
             

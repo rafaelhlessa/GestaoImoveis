@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
 
 class ServiceProviderMiddleware
 {
@@ -15,7 +16,7 @@ class ServiceProviderMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         if ($user->profile_id === 1) {
             return redirect()->route('service-providers.index');

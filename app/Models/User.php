@@ -19,7 +19,6 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-
     public const PROFILE_ADMIN   = 3;
     public const PROFILE_MANAGER = 2;
     public const PROFILE_VIEWER  = 1;
@@ -109,11 +108,6 @@ class User extends Authenticatable
         return $this->belongsToMany(Property::class, 'property_user', 'user_id', 'property_id');
     }
 
-    // public function typeOwnerships()
-    // {
-    //     return $this->belongsToMany(TypeOwnership::class, 'property_user', 'type_ownership_id', 'user_id');
-    // }
-
     public function typeOwnership(): HasOneThrough
     {
         return $this->hasOneThrough(
@@ -126,24 +120,60 @@ class User extends Authenticatable
         );
     }
 
-    // public function activity()
-    // {
-    //     return $this->belongsTo(Activity::class, 'activity_id', 'id');
-        
-    // }
+    /**
+     * Relacionamento com Activity (via activity_id)
+     */
+    public function activity(): BelongsTo
+    {
+        return $this->belongsTo(Activity::class, 'activity_id', 'id');
+    }
+
     // Helper method to get authenticated user's activity
     public static function getAuthenticatedUserActivity()
     {            
         if (Auth::check()) {
             return Auth::user()->activity;
         }
-            return null;
+        return null;
     }
-    
-    public function activityUsers(): HasOne
+
+    /**
+     * Verifica se o usuário tem permissão para avaliar propriedades
+     */
+    public function canEvaluateProperties()
     {
-        return $this->hasOne(Activity::class, 'activity_id', 'id');
+        // Proprietários puros (profile_id 1) não podem avaliar
+        if ($this->profile_id === 1) {
+            return false;
+        }
+        
+        // Prestadores de serviço (profile_id 2) dependem da tabela authorizations
+        if ($this->profile_id === 2) {
+            // Esta verificação deve ser feita no contexto de uma propriedade específica
+            return null; // Retorna null para indicar que precisa de verificação contextual
+        }
+        
+        // Proprietário/Prestador (profile_id 3) depende da activity
+        if ($this->profile_id === 3) {
+            return $this->activity && $this->activity->evaluation_permission;
+        }
+        
+        return false;
     }
 
+    /**
+     * Accessor para verificar se tem atividade de avaliação
+     */
+    public function getHasEvaluationPermissionAttribute()
+    {
+        return $this->activity && $this->activity->evaluation_permission;
+    }
 
+    /**
+     * Verifica se é proprietário de uma propriedade específica
+     */
+    public function isOwnerOfProperty($propertyId)
+    {
+        return $this->properties()->where('property_id', $propertyId)->exists();
+    }
 }

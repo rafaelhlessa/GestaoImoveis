@@ -1,14 +1,19 @@
 <script setup>
-  import { ref, onMounted } from 'vue'
+  import { ref, onMounted, computed } from 'vue'
   import axios from 'axios'
   import InputLabel from '@/Components/InputLabel.vue'
   import TextInput from '@/Components/TextInput.vue'
   
   const props = defineProps({
     modelValue: String,
-    modelValueId: Number,
+    modelValueId: {
+      type: [String, Number],
+      default: null
+    },
     label: { type: String, default: 'Cidade' },
-    placeholder: { type: String, default: 'Digite a cidade' }
+    placeholder: { type: String, default: 'Digite a cidade' },
+    // ✅ Adicione esta propriedade para o ID do input
+    id: { type: String, default: 'city-select' }
   })
   const emits = defineEmits(['update:modelValue', 'update:modelValueId'])
   
@@ -16,6 +21,9 @@
   const showSuggestions = ref(false)
   const allCities = ref([])
   const filteredCities = ref([])
+  
+  // ✅ Computed para gerar um ID único se necessário
+  const inputId = computed(() => props.id || `city-select-${Math.random().toString(36).substr(2, 9)}`)
   
   // Carrega lista de cidades na montagem
   onMounted(async () => {
@@ -41,13 +49,18 @@
       showSuggestions.value = false
     }
     emits('update:modelValue', query.value)
+
+    // ✅ Limpa o ID quando o usuário digita (cidade não selecionada)
+    if (q.length < 3) {
+      emits('update:modelValueId', null)
+    }
   }
   
   // Seleciona cidade e emite valores
   const selectCity = city => {
     query.value = city.nome
     emits('update:modelValue', city.nome)
-    emits('update:modelValueId', city.id)
+    emits('update:modelValueId', Number(city.id))
     showSuggestions.value = false
   }
   
@@ -56,9 +69,10 @@
   
 <template>
     <div class="relative">
-      <InputLabel :for="idName" :value="label" />
+      <!-- ✅ Substitua idName por inputId -->
+      <InputLabel :for="inputId" :value="label" />
       <TextInput
-        :id="idName"
+        :id="inputId"
         v-model="query"
         type="text"
         class="mt-1 block w-full"
@@ -70,7 +84,7 @@
       />
       <ul
         v-if="showSuggestions"
-        class="absolute z-10 bg-white shadow mt-1 max-h-40 overflow-auto w-full rounded"
+        class="absolute z-10 bg-white shadow mt-1 max-h-40 overflow-auto w-full rounded border border-gray-300"
       >
         <li
           v-for="city in filteredCities"
@@ -82,5 +96,4 @@
         </li>
       </ul>
     </div>
-  </template>
-  
+</template>

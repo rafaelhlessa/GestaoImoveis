@@ -11,6 +11,27 @@ import CitySelect from '@/Components/CitySelect.vue';
 
 const props = defineProps({
     activities: Array,
+    modelValue: {
+        type: [String, Number],
+        default: null
+    },
+    modelValueId: {
+        type: [String, Number],
+        default: null
+    },
+    label: {
+        type: String,
+        default: ''
+    },
+    placeholder: {
+        type: String,
+        default: ''
+    },
+    // ✅ Adicione esta propriedade se estiver sendo usada no template
+    idName: {
+        type: String,
+        default: 'id' // ou o valor padrão apropriado
+    }
 });
 
 const form = useForm({
@@ -106,8 +127,8 @@ const activity = ref(0)
 watch(
     () => form.profile_id,
     (newValue, oldValue) => {
-        if (newValue && newValue !== oldValue) {
-            activity.value = newValue
+        if (newValue && newValue !== oldValue && newValue !== '') {
+            activity.value = parseInt(newValue) || 0;
         }
     }
 );
@@ -125,10 +146,22 @@ function validateClient() {
     message.value = 'Preencha todos os campos obrigatórios.'
     return false
   }
+
+  if (!form.profile_id || form.profile_id === '') {
+    message.value = 'Selecione um perfil.';
+    return false;
+  }
+
+  if (form.profile_id > 1 && !form.activity_id) {
+    message.value = 'Selecione uma atividade.';
+    return false;
+  }
+
   if (form.password !== form.password_confirmation) {
     message.value = 'As senhas não conferem.'
     return false
   }
+  
   message.value = ''
   return true
 }

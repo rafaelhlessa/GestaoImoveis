@@ -32,6 +32,26 @@ class Property extends Model
         return $this->hasMany(PropertyDocument::class, 'property_id');
     }
 
+    // NOVO: Relacionamento com PropertyEvaluation
+    public function evaluations(): HasMany
+    {
+        return $this->hasMany(PropertyEvaluation::class, 'property_id');
+    }
+
+    // Relacionamento para obter apenas avaliações recentes
+    public function recentEvaluations(): HasMany
+    {
+        return $this->hasMany(PropertyEvaluation::class, 'property_id')
+                    ->orderBy('created_at', 'desc');
+    }
+
+    // Relacionamento para obter a última avaliação
+    public function latestEvaluation()
+    {
+        return $this->hasOne(PropertyEvaluation::class, 'property_id')
+                    ->latestOfMany();
+    }
+
     public function authorizations()
     {
         return $this->hasManyThrough(
@@ -52,5 +72,26 @@ class Property extends Model
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    // Métodos auxiliares para avaliações
+    public function getAverageValuationAttribute()
+    {
+        return $this->evaluations()->avg('valuation');
+    }
+
+    public function getEvaluationsCountAttribute()
+    {
+        return $this->evaluations()->count();
+    }
+
+    public function getHighestValuationAttribute()
+    {
+        return $this->evaluations()->max('valuation');
+    }
+
+    public function getLowestValuationAttribute()
+    {
+        return $this->evaluations()->min('valuation');
     }
 }

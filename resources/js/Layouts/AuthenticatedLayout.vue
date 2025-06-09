@@ -1,12 +1,38 @@
 <script setup>
-import { ref } from 'vue';
+import { defineProps, ref, computed, onMounted } from 'vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 
 const showingNavigationDropdown = ref(false);
+
+const props = defineProps({
+    auth: {
+        type: Object,
+        default: () => ({ user: null }),
+    },
+    errors: {
+        type: Object,
+        default: () => ({}),
+    },
+});
+
+// Usar usePage como fallback
+const page = usePage();
+
+// Usar sempre $page.props.auth.user como padrão
+const user = computed(() => {
+    return page.props?.auth?.user || null;
+});
+
+// Debug - remova depois que funcionar
+onMounted(() => {
+    console.log('Props auth:', props.auth);
+    console.log('Page props:', page.props);
+    console.log('User computed:', user.value);
+});
 </script>
 
 <template>
@@ -38,7 +64,7 @@ const showingNavigationDropdown = ref(false);
                                 </NavLink>
 
                                 <NavLink
-                                    v-if="$page.props.auth.user.profile_id != 2"
+                                    v-if="user && user.profile_id != 2"
                                     :href="route('property.index')"
                                     :active="route().current('property.index')"
                                 >
@@ -57,8 +83,8 @@ const showingNavigationDropdown = ref(false);
                                                 type="button"
                                                 class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none dark:bg-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
                                             >
-                                                {{ $page.props.auth.user.name }}
-
+                                                {{ user?.name || 'Usuário' }}
+                                                
                                                 <svg
                                                     class="-me-0.5 ms-2 h-4 w-4"
                                                     xmlns="http://www.w3.org/2000/svg"
@@ -77,13 +103,14 @@ const showingNavigationDropdown = ref(false);
 
                                     <template #content>
                                         <DropdownLink
-                                            v-if="$page.props.auth.user.is_admin"
+                                            v-if="user?.is_admin"
                                             :href="route('admin.dev.index')"
-                                            >
+                                        >
                                             Painel Admin
                                         </DropdownLink>
-                                        <DropdownLink v-if="$page.props.auth.user.profile_id != 2"
-                                            :href="route('authorizations.index', $page.props.auth.user.id)"
+                                        <DropdownLink 
+                                            v-if="user && user.profile_id != 2"
+                                            :href="route('authorizations.index', user.id)"
                                         >
                                             Autorizações
                                         </DropdownLink>
@@ -164,7 +191,7 @@ const showingNavigationDropdown = ref(false);
                         </ResponsiveNavLink>
 
                         <ResponsiveNavLink
-                            v-if="$page.props.auth.user.profile_id != 2"
+                            v-if="user && user.profile_id != 2"
                             :href="route('property.index')"
                             :active="route().current('property.index')"
                         >
@@ -180,16 +207,17 @@ const showingNavigationDropdown = ref(false);
                             <div
                                 class="text-base font-medium text-gray-800 dark:text-gray-200"
                             >
-                                {{ $page.props.auth.user.name }}
+                                {{ user?.name }}
                             </div>
                             <div class="text-sm font-medium text-gray-500">
-                                {{ $page.props.auth.user.email }}
+                                {{ user?.email }}
                             </div>
                         </div>
 
                         <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink v-if="$page.props.auth.user.profile_id != 2"
-                                :href="route('authorizations.index', $page.props.auth.user.id)"
+                            <ResponsiveNavLink 
+                                v-if="user && user.profile_id != 2"
+                                :href="route('authorizations.index', user.id)"
                             >
                                 Autorizações
                             </ResponsiveNavLink>

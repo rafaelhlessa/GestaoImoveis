@@ -60,6 +60,10 @@ class RegisteredUserController extends Controller
             'is_active' => false, // Importante: usuário inicia inativo
         ]);
 
+        if (!empty($data['activity_id'])) {
+            $userData['activity_id'] = $data['activity_id'];
+        }
+
         event(new Registered($user));
 
         // Enviar email de ativação

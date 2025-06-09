@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Activity;
 use App\Models\Authorization;
 use Illuminate\Auth\Access\HandlesAuthorization;
+use Illuminate\Support\Facades\DB;
 
 class ActivityPolicy
 {
@@ -33,9 +34,11 @@ class ActivityPolicy
             return true;
         }
 
-        return Authorization::where('user_id', $activity->owner_id)
-            ->where('authorized_user_id', $user->id)
-            ->where('ativo', true)
+        // Corrigido para usar owner_id em vez de user_id
+        return DB::table('authorizations')
+            ->where('owner_id', $activity->owner_id)
+            ->where('service_provider_id', $user->id)
+            ->where('can_view_documents', 1) // ou outro campo apropriado
             ->exists();
     }
 

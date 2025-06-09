@@ -15,24 +15,53 @@ class StorePropertyRequest extends FormRequest
      */
     public function authorize(): bool
     {
-
         $authUser = $this->user();
+            
+        // Se não há usuário autenticado, nega acesso
+        if (!$authUser) {
+            return false;
+        }
+        
         $ownerId = $this->input('owner_id') ?? $authUser->id;
-        $owner = \App\Models\User::find($ownerId);
+        $owner = User::find($ownerId);
 
         if (!$owner) {
             return false;
         }
 
-        return \App\Helpers\UserAccessHelper::canCreateForOwner($authUser, $owner);
+        // Verifica se tem o helper - se não, usa lógica básica
+        if (class_exists(UserAccessHelper::class)) {
+            return UserAccessHelper::canCreateForOwner($authUser, $owner);
+        }
+        
+        // Lógica básica de fallback
+        return $this->canCreateForOwnerBasic($authUser, $owner);
 
+    }
+
+    private function canCreateForOwnerBasic($authUser, $owner): bool
+    {
+        // Se está criando para si mesmo
+        if ($authUser->id === $owner->id) {
+            return in_array($authUser->profile_id, [1, 3]); // Proprietário ou Proprietário-Prestador
+        }
+        
+        // Se é prestador de serviço tentando criar para outro
+        if ($authUser->profile_id === 2) {
+            return Authorization::where('service_provider_id', $authUser->id)
+                ->where('owner_id', $owner->id)
+                ->where('can_create_properties', true)
+                ->exists();
+        }
+        
+        return false;
     }
 
     protected function prepareForValidation()
     {
-        if (!$this->has('owner_id') && auth()->check()) {
+        if (!$this->has('owner_id') && $this->user()) {
             $this->merge([
-                'owner_id' => auth()->id(),
+                'owner_id' => $this->user()->id,
             ]);
         }
     }
@@ -48,6 +77,7 @@ class StorePropertyRequest extends FormRequest
             'owner_id' => ['nullable', 'exists:users,id'],
             'is_active' => 'boolean',
             'title_deed' => ['required', 'integer'],
+            'title_deed_number' => 'nullable|string|max:100',
             'type_property' => ['required', 'integer'],
             'other' => 'nullable|string|max:255',
             'area' => 'nullable|numeric|min:0',

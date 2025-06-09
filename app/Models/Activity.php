@@ -9,7 +9,14 @@ class Activity extends Model
 {
     protected $table = 'activity';
 
-    protected $fillable = ['name'];
+    protected $fillable = [
+        'name', 
+        'evaluation_permission'
+    ];
+
+    protected $casts = [
+        'evaluation_permission' => 'boolean',
+    ];
 
     use BelongsToProprietario;
 
@@ -28,9 +35,20 @@ class Activity extends Model
         return $this->belongsTo(User::class);
     }
 
-    // public function users()
-    // {
-    //     return $this->hasMany(User::class, 'activity_id', 'id');
-    // }
+    public function users()
+    {
+        return $this->hasMany(User::class, 'activity_id', 'id');
+    }
 
+    // Método para verificar se tem permissão de avaliação
+    public function hasEvaluationPermission()
+    {
+        return $this->evaluation_permission;
+    }
+
+    // Scopes úteis
+    public function scopeWithEvaluationPermission($query)
+    {
+        return $query->where('evaluation_permission', true);
+    }
 }
