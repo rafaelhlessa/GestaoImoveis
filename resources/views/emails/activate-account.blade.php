@@ -125,7 +125,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <img src="/storage/app/public/logo-sem fundo.png" alt="Propriedades na Mão" class="logo" onerror="this.onerror=null; this.src=''; this.alt='Propriedades na Mão';">
+            <img src="{{ $message->embed(public_path('storage/logo-sem fundo.png')) }}" alt="Propriedades na Mão" class="logo" onerror="this.onerror=null; this.src=''; this.alt='Propriedades na Mão';">
             <h1>Ative sua conta agora</h1>
         </div>
         
@@ -135,7 +135,7 @@
             <p>Obrigado por se cadastrar no <strong>Propriedades na Mão</strong>. Estamos muito felizes em ter você conosco! Para começar a usar todos os recursos da nossa plataforma de gestão de imóveis, precisamos que você ative sua conta.</p>
             
             <div class="button-container">
-                <a href="{{ $activationLink }}" class="button">ATIVAR MINHA CONTA</a>
+                <a href="{{ $activationLink }}" class="button" style="color: #ffffff;">ATIVAR MINHA CONTA</a>
             </div>
             
             <p>Ou, se preferir, copie e cole o link abaixo no seu navegador:</p>
