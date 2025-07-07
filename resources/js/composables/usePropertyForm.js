@@ -39,7 +39,7 @@ export function usePropertyForm(props = {}) {
   // FORMULÁRIO PRINCIPAL
   // ====================================
   const form = useForm({
-    is_active: initialData?.is_active ?? true,
+    is_active: initialData?.is_active === true || initialData?.is_active === 1 || initialData?.is_active === "1" ? true : false,
     type_property: initialData?.type_property || null,
     title_deed: initialData?.title_deed || '',
     title_deed_number: initialData?.title_deed_number || '',

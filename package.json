@@ -28,8 +28,6 @@
         "@mapbox/sexagesimal": "^1.2.0",
         "@mapbox/togeojson": "^0.16.2",
         "chart.js": "^4.4.9",
-        "instead": "^1.0.3",
-        "jquery": "^3.7.1",
         "jszip": "^3.10.1",
         "leaflet": "^1.9.4",
         "leaflet-kml": "^1.0.1",

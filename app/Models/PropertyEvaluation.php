@@ -80,6 +80,54 @@ class PropertyEvaluation extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    // Novos relacionamentos para propriedades rurais
+    public function animals()
+    {
+        return $this->hasMany(PropertyEvaluationAnimal::class);
+    }
+
+    public function machinery()
+    {
+        return $this->hasMany(PropertyEvaluationMachinery::class);
+    }
+
+    public function structures()
+    {
+        return $this->hasMany(PropertyEvaluationStructure::class);
+    }
+
+    /**
+     * Calcula o valor total dos animais
+     */
+    public function getTotalAnimalsValueAttribute()
+    {
+        return $this->animals->sum('total_price');
+    }
+
+    /**
+     * Calcula o valor total dos maquinários
+     */
+    public function getTotalMachineryValueAttribute()
+    {
+        return $this->machinery->sum('total_price');
+    }
+
+    /**
+     * Calcula o valor total das estruturas
+     */
+    public function getTotalStructuresValueAttribute()
+    {
+        return $this->structures->sum('estimated_value');
+    }
+
+    /**
+     * Calcula o valor total da propriedade rural (terra + benfeitorias)
+     */
+    public function getTotalRuralValueAttribute()
+    {
+        return $this->valuation + $this->total_animals_value + $this->total_machinery_value + $this->total_structures_value;
+    }
+
     // Accessor para tipos de construção como string
     public function getConstructionTypesTextAttribute()
     {

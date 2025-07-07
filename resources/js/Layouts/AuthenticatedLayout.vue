@@ -26,13 +26,6 @@ const page = usePage();
 const user = computed(() => {
     return page.props?.auth?.user || null;
 });
-
-// Debug - remova depois que funcionar
-onMounted(() => {
-    console.log('Props auth:', props.auth);
-    console.log('Page props:', page.props);
-    console.log('User computed:', user.value);
-});
 </script>
 
 <template>
@@ -69,6 +62,14 @@ onMounted(() => {
                                     :active="route().current('property.index')"
                                 >
                                     Propriedades
+                                </NavLink>
+
+                                <NavLink
+                                    v-if="user && user.profile_id != 2"
+                                    :href="route('authorizations.index', user.id)"
+                                    :active="route().current('authorizations.index', user.id)"
+                                >
+                                    Autorizações
                                 </NavLink>
                             </div>
                         </div>
@@ -107,12 +108,6 @@ onMounted(() => {
                                             :href="route('admin.dev.index')"
                                         >
                                             Painel Admin
-                                        </DropdownLink>
-                                        <DropdownLink 
-                                            v-if="user && user.profile_id != 2"
-                                            :href="route('authorizations.index', user.id)"
-                                        >
-                                            Autorizações
                                         </DropdownLink>
                                         <DropdownLink
                                             :href="route('profile.edit')"

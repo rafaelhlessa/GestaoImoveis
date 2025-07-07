@@ -10,9 +10,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\AuthorizationController;
 use App\Http\Controllers\ServiceProviderController;
-use App\Http\Middleware\ServiceProviderMiddleware;
 use App\Http\Controllers\Auth\RegisteredUserController;
-use App\Http\Controllers\DevController;
 use App\Http\Controllers\PropertyEvaluationController;
 use Illuminate\Support\Facades\Auth;
 
@@ -66,8 +64,6 @@ Route::get('/view-email/activate-account', function () {
 
 // Rotas de propriedades principais
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::resource('property', PropertyController::class);
-    Route::get('propertyNew/{id}', [PropertyController::class, 'clientsProperty'])->name('clients.property');
     Route::get('propertyShow/{id?}', [PropertyController::class, 'clientShow'])->name('clients.show');
     
     // ROTAS CORRIGIDAS PARA DOCUMENTOS
@@ -77,9 +73,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Rota específica para KML com CORS
     Route::get('property/kml/{id}', [PropertyController::class, 'serveKml'])
         ->name('property.kml.serve');
-    
-    Route::patch('property/property/{document}', [PropertyController::class, 'updateDocumentShow'])
-        ->name('property.updateDocument');
 });
 
 // Handle OPTIONS requests for CORS (fora do middleware auth para preflight)
@@ -107,35 +100,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Route::middleware(['auth'])->group(function() {
-//     Route::resource(
-//         'properties.evaluations',
-//         PropertyEvaluationController::class
-//     )->shallow()
-//       ->names([
-//          'index'   => 'properties.evaluations.index',
-//          'create'  => 'properties.evaluations.create',
-//          'store'   => 'properties.evaluations.store',
-//          'show'    => 'properties.evaluations.show',
-//          'edit'    => 'properties.evaluations.edit',
-//          'update'  => 'properties.evaluations.update',
-//          'destroy' => 'properties.evaluations.destroy',
-//       ]);
-// });
-// Route::middleware(['auth'])->group(function () {
-//     // Rotas aninhadas para avaliações de propriedades
-//     Route::prefix('properties/{property}')->name('properties.')->group(function () {
-//         Route::resource('evaluations', PropertyEvaluationController::class)->names([
-//             'index' => 'evaluations.index',
-//             'create' => 'evaluations.create', 
-//             'store' => 'evaluations.store',
-//             'show' => 'evaluations.show',
-//             'edit' => 'evaluations.edit',
-//             'update' => 'evaluations.update',
-//             'destroy' => 'evaluations.destroy'
-//         ]);
-//     });
-// });
 Route::middleware(['auth', 'verified'])->group(function () {
 
      Route::get('/properties/{property}/evaluations', [PropertyEvaluationController::class, 'index'])
@@ -182,13 +146,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/property', [PropertyController::class, 'store'])
         ->name('property.store');
         
-    // CORREÇÃO: Esta rota serve tanto para propriedades próprias quanto de clientes
     Route::get('/property/{property}', [PropertyController::class, 'show'])
         ->name('property.show');
-        
-    // CORREÇÃO: Criar um alias para a mesma rota
-    Route::get('/clients/property/{property}', [PropertyController::class, 'show'])
-        ->name('clients.show');
         
     Route::get('/property/{property}/edit', [PropertyController::class, 'edit'])
         ->name('property.edit');
@@ -201,7 +160,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // Propriedades de clientes - listagem
     Route::get('/clients/{id}/properties', [PropertyController::class, 'clientsProperty'])
-        ->name('clients.property')
+        ->name('clients.properties')
         ->where('id', '[0-9]+');
     
     // Documentos
@@ -235,40 +194,5 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('error.unauthorized');
 });
-
-Route::get('/debug-create-data', function() {
-    $currentUser = Auth::user();
-    $controller = new \App\Http\Controllers\PropertyController();
-    
-    $reflection = new ReflectionClass($controller);
-    $getUsersMethod = $reflection->getMethod('getAvailableUsers');
-    $getUsersMethod->setAccessible(true);
-    $getAuthMethod = $reflection->getMethod('getUserAuthorizations');
-    $getAuthMethod->setAccessible(true);
-    
-    $users = $getUsersMethod->invoke($controller, $currentUser);
-    $authorizations = $getAuthMethod->invoke($controller, $currentUser);
-    
-    return response()->json([
-        'current_user' => $currentUser,
-        'users' => $users,
-        'authorizations' => $authorizations,
-        'users_count' => count($users),
-        'authorizations_count' => count($authorizations),
-    ]);
-});
-
-// Rota de debug (remover em produção)
-    Route::get('/debug/property-evaluations/tables', [PropertyEvaluationController::class, 'debugTables'])
-        ->name('debug.property-evaluations.tables');
-
-
-Route::middleware(['auth','can:isAdmin'])
-     ->prefix('admin')
-     ->name('admin.')
-     ->group(function () {
-         Route::get('/devs',   [DevController::class, 'index'])->name('dev.index');
-         Route::post('/dev',  [DevController::class, 'store'])->name('dev.store');
-     });
 
 require __DIR__.'/auth.php';

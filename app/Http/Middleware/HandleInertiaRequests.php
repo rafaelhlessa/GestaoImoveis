@@ -41,6 +41,11 @@ class HandleInertiaRequests extends Middleware
                     'id' => $request->user()->id,
                     'name' => $request->user()->name,
                     'email' => $request->user()->email,
+                    'cpf_cnpj' => $request->user()->cpf_cnpj,
+                    'phone' => $request->user()->phone,
+                    'address' => $request->user()->address,
+                    'city' => $request->user()->city,
+                    'city_id' => $request->user()->city_id,
                     'profile_id' => $request->user()->profile_id,
                     'is_admin' => $request->user()->is_admin ?? false,
                     // Adicione outros campos que você precisa

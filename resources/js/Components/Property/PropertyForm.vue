@@ -34,9 +34,7 @@
                       <label class="inline-flex items-center cursor-pointer">
                         <input 
                           type="checkbox" 
-                          v-model="form.is_active" 
-                          :checked="form.is_active === true"
-                          @change="toggleActive"
+                          v-model="form.is_active"
                           class="sr-only peer"
                         >
                         <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -613,10 +611,6 @@ const goBack = () => {
   } else {
     router.visit('/property')
   }
-}
-
-const toggleActive = () => {
-  form.is_active = form.is_active === true ? false : true
 }
 </script>
 

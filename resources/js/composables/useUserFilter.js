@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 
 export function useUserFilter(users, authorizations, currentUser) {
-  const debugMode = ref(true)
+  const debugMode = ref(false) // Disable debug mode in production
 
   /**
    * USUÁRIOS DISPONÍVEIS BASEADO NO PERFIL - SEMPRE ATIVO

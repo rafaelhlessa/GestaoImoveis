@@ -261,6 +261,29 @@ class PropertyEvaluationController extends BaseController
                 'water_source_details' => 'nullable|string',
                 'construction_types' => 'nullable',
                 'farming_types' => 'nullable',
+                // Adicionar validações para os novos campos rurais
+                'animals' => 'nullable|array',
+                'animals.*.type' => 'required|string',
+                'animals.*.category' => 'nullable|string',
+                'animals.*.quantity' => 'required|integer|min:1',
+                'animals.*.unit_price' => 'required|numeric|min:0',
+                'animals.*.observations' => 'nullable|string',
+                'machinery' => 'nullable|array',
+                'machinery.*.type' => 'required|string',
+                'machinery.*.brand' => 'nullable|string',
+                'machinery.*.model' => 'nullable|string',
+                'machinery.*.year' => 'nullable|integer',
+                'machinery.*.condition' => 'nullable|string',
+                'machinery.*.quantity' => 'required|integer|min:1',
+                'machinery.*.unit_price' => 'required|numeric|min:0',
+                'machinery.*.observations' => 'nullable|string',
+                'structures' => 'nullable|array',
+                'structures.*.type' => 'required|string',
+                'structures.*.quantity' => 'required|integer|min:1',
+                'structures.*.area' => 'nullable|numeric|min:0',
+                'structures.*.condition' => 'nullable|string',
+                'structures.*.description' => 'nullable|string',
+                'structures.*.specifications' => 'nullable|string',
             ]);
             
             Log::info('Validação passou, salvando...');
@@ -277,11 +300,43 @@ class PropertyEvaluationController extends BaseController
                 $validated['farming_types'] = null;
             }
 
+            // Extrair dados dos relacionamentos antes de criar a avaliação
+            $animalsData = $validated['animals'] ?? [];
+            $machineryData = $validated['machinery'] ?? [];
+            $structuresData = $validated['structures'] ?? [];
+            
+            // Remover os arrays dos dados da avaliação principal
+            unset($validated['animals'], $validated['machinery'], $validated['structures']);
+
             DB::beginTransaction();
 
             $evaluation = PropertyEvaluation::create($validated);
 
             Log::info('Avaliação criada!', ['evaluation_id' => $evaluation->id]);
+
+            // Salvar animais se houver
+            if (!empty($animalsData)) {
+                foreach ($animalsData as $animalData) {
+                    $evaluation->animals()->create($animalData);
+                }
+                Log::info('Animais salvos', ['count' => count($animalsData)]);
+            }
+
+            // Salvar maquinário se houver  
+            if (!empty($machineryData)) {
+                foreach ($machineryData as $machineData) {
+                    $evaluation->machinery()->create($machineData);
+                }
+                Log::info('Maquinário salvo', ['count' => count($machineryData)]);
+            }
+
+            // Salvar estruturas se houver
+            if (!empty($structuresData)) {
+                foreach ($structuresData as $structureData) {
+                    $evaluation->structures()->create($structureData);
+                }
+                Log::info('Estruturas salvas', ['count' => count($structuresData)]);
+            }
 
             DB::commit();
 
@@ -339,7 +394,7 @@ class PropertyEvaluationController extends BaseController
                 abort(404);
             }
 
-            $evaluation->load(['user', 'property']);
+            $evaluation->load(['user', 'property', 'animals', 'machinery', 'structures']);
 
             return Inertia::render('Properties/PropertyEvaluationShow', [
                 'property' => $property,
@@ -380,22 +435,102 @@ class PropertyEvaluationController extends BaseController
                 abort(404);
             }
             
-            // Validação simples
+            // Validação expandida
             $validated = $request->validate([
                 'appraiser' => 'required|string|max:255',
                 'valuation' => 'required|numeric|min:0',
-                'comments' => 'nullable|string|max:1000',
-                'observations' => 'nullable|string|max:2000',
+                'property_type' => 'required|string',
+                'comments' => 'nullable|string',
+                'observations' => 'nullable|string',
+                'urban_subtype' => 'nullable|string',
+                'property_condition' => 'nullable|string',
+                'furniture_status' => 'nullable|string',
+                'rooms' => 'nullable|integer',
+                'bedrooms' => 'nullable|integer',
+                'bathrooms' => 'nullable|integer',
+                'garage_spaces' => 'nullable|integer',
+                'floors' => 'nullable|integer',
+                'built_area' => 'nullable|numeric',
+                'total_area' => 'nullable|numeric',
+                'office_rooms' => 'nullable|integer',
+                'parking_spaces' => 'nullable|integer',
+                'rural_total_area' => 'nullable|numeric',
+                'has_construction' => 'nullable|boolean',
+                'has_farming' => 'nullable|boolean',
+                'water_source' => 'nullable|string',
+                'water_source_details' => 'nullable|string',
+                'construction_types' => 'nullable',
+                'farming_types' => 'nullable',
+                // Validações para os novos campos rurais
+                'animals' => 'nullable|array',
+                'animals.*.type' => 'required|string',
+                'animals.*.category' => 'nullable|string',
+                'animals.*.quantity' => 'required|integer|min:1',
+                'animals.*.unit_price' => 'required|numeric|min:0',
+                'animals.*.observations' => 'nullable|string',
+                'machinery' => 'nullable|array',
+                'machinery.*.type' => 'required|string',
+                'machinery.*.brand' => 'nullable|string',
+                'machinery.*.model' => 'nullable|string',
+                'machinery.*.year' => 'nullable|integer',
+                'machinery.*.condition' => 'nullable|string',
+                'machinery.*.quantity' => 'required|integer|min:1',
+                'machinery.*.unit_price' => 'required|numeric|min:0',
+                'machinery.*.observations' => 'nullable|string',
+                'structures' => 'nullable|array',
+                'structures.*.type' => 'required|string',
+                'structures.*.quantity' => 'required|integer|min:1',
+                'structures.*.area' => 'nullable|numeric|min:0',
+                'structures.*.condition' => 'nullable|string',
+                'structures.*.description' => 'nullable|string',
+                'structures.*.specifications' => 'nullable|string',
             ]);
             
             // Garantir que não altere property_id e user_id
             $validated['user_id'] = $evaluation->user_id;
+
+            // Extrair dados dos relacionamentos antes de atualizar a avaliação principal
+            $animalsData = $validated['animals'] ?? [];
+            $machineryData = $validated['machinery'] ?? [];
+            $structuresData = $validated['structures'] ?? [];
+            
+            // Remover os arrays dos dados da avaliação principal
+            unset($validated['animals'], $validated['machinery'], $validated['structures']);
 
             Log::info('Atualizando avaliação', ['validated' => $validated]);
 
             DB::beginTransaction();
 
             $evaluation->update($validated);
+
+            // Atualizar relacionamentos rurais - remover existentes e recriar
+            $evaluation->animals()->delete();
+            $evaluation->machinery()->delete();
+            $evaluation->structures()->delete();
+
+            // Recriar animais se houver
+            if (!empty($animalsData)) {
+                foreach ($animalsData as $animalData) {
+                    $evaluation->animals()->create($animalData);
+                }
+                Log::info('Animais atualizados', ['count' => count($animalsData)]);
+            }
+
+            // Recriar maquinário se houver  
+            if (!empty($machineryData)) {
+                foreach ($machineryData as $machineData) {
+                    $evaluation->machinery()->create($machineData);
+                }
+                Log::info('Maquinário atualizado', ['count' => count($machineryData)]);
+            }
+
+            // Recriar estruturas se houver
+            if (!empty($structuresData)) {
+                foreach ($structuresData as $structureData) {
+                    $evaluation->structures()->create($structureData);
+                }
+                Log::info('Estruturas atualizadas', ['count' => count($structuresData)]);
+            }
 
             Log::info('Avaliação atualizada com sucesso');
 

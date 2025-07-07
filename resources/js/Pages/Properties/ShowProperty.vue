@@ -594,23 +594,6 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                     Editar Propriedade
                                                 </button>
                                             </div>
-                                            
-                                            <!-- Debug info (remover em produção) -->
-                                            <div v-if="$page.props.app?.debug" class="mt-4 text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                                                <strong>Debug Permissões:</strong><br>
-                                                canEvaluate (backend): {{ props.canEvaluate }}<br>
-                                                canEdit: {{ props.canEdit }}<br>
-                                                canView: {{ props.canView }}<br>
-                                                isOwner: {{ isOwner }}<br>
-                                                isDirectOwner: {{ isDirectOwner }}<br>
-                                                hasAuthorization: {{ hasAuthorization }}<br>
-                                                canViewEvaluations: {{ canViewEvaluations }}<br>
-                                                canEvaluateProperty: {{ canEvaluateProperty }}<br>
-                                                canViewAllDocuments: {{ canViewAllDocuments }}<br>
-                                                canEditDocumentVisibility: {{ canEditDocumentVisibility }}<br>
-                                                userActivity: {{ props.userActivity?.evaluation_permission }}<br>
-                                                profile: {{ auth.user.profile_id }}
-                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -153,12 +153,43 @@
         <p v-if="errors.water_source_details" class="text-red-500 text-xs mt-1">{{ errors.water_source_details }}</p>
       </div>
     </div>
+
+    <!-- Seção de Animais -->
+    <div class="mt-6">
+      <RuralAnimalsManager 
+        v-model="localForm.animals"
+      />
+    </div>
+
+    <!-- Seção de Maquinário -->
+    <div class="mt-6">
+      <RuralMachineryManager 
+        v-model="localForm.machinery"
+      />
+    </div>
+
+    <!-- Seção de Estruturas Físicas -->
+    <div class="mt-6">
+      <RuralStructuresManager 
+        v-model="localForm.structures"
+      />
+    </div>
   </div>
 </template>
 
 <script>
+import RuralAnimalsManager from './Property/RuralAnimalsManager.vue'
+import RuralMachineryManager from './Property/RuralMachineryManager.vue'
+import RuralStructuresManager from './Property/RuralStructuresManager.vue'
+
 export default {
   name: 'RuralFormModal',
+  
+  components: {
+    RuralAnimalsManager,
+    RuralMachineryManager,
+    RuralStructuresManager
+  },
   
   props: {
     modelValue: {
@@ -202,7 +233,20 @@ export default {
   computed: {
     localForm: {
       get() {
-        return this.modelValue
+        // Inicializar arrays se necessário
+        const form = this.modelValue
+        if (form && typeof form === 'object') {
+          if (!Array.isArray(form.animals)) {
+            form.animals = []
+          }
+          if (!Array.isArray(form.machinery)) {
+            form.machinery = []
+          }
+          if (!Array.isArray(form.structures)) {
+            form.structures = []
+          }
+        }
+        return form
       },
       set(value) {
         this.$emit('update:modelValue', value)

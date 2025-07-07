@@ -36,8 +36,6 @@
               </label>
 
               <!-- Perfil Proprietário: Auto-seleção -->
-               {{ isOwnerProfile  }}
-               {{ canAddOwners }}
               <div v-if="isOwnerProfile && availableUsers.length === 1">
                 <div class="p-3 bg-green-50 border border-green-200 rounded-md">
                   <div class="flex items-center">
