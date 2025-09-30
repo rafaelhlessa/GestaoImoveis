@@ -64,7 +64,7 @@ onMounted(() => {
                                 </NavLink>
 
                                 <NavLink
-                                    v-if="user && user.profile_id != 2"
+                                    v-if="user && (!user.profiles?.includes('prestador') || user.profiles?.includes('proprietario'))"
                                     :href="route('property.index')"
                                     :active="route().current('property.index')"
                                 >
@@ -84,7 +84,7 @@ onMounted(() => {
                                                 class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none dark:bg-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
                                             >
                                                 {{ user?.name || 'Usuário' }}
-                                                
+
                                                 <svg
                                                     class="-me-0.5 ms-2 h-4 w-4"
                                                     xmlns="http://www.w3.org/2000/svg"
@@ -108,8 +108,8 @@ onMounted(() => {
                                         >
                                             Painel Admin
                                         </DropdownLink>
-                                        <DropdownLink 
-                                            v-if="user && user.profile_id != 2"
+                                        <DropdownLink
+                                            v-if="user && (!user.profiles?.includes('prestador') || user.profiles?.includes('proprietario'))"
                                             :href="route('authorizations.index', user.id)"
                                         >
                                             Autorizações
@@ -191,7 +191,7 @@ onMounted(() => {
                         </ResponsiveNavLink>
 
                         <ResponsiveNavLink
-                            v-if="user && user.profile_id != 2"
+                            v-if="user && (!user.profiles?.includes('prestador') || user.profiles?.includes('proprietario'))"
                             :href="route('property.index')"
                             :active="route().current('property.index')"
                         >
@@ -215,8 +215,8 @@ onMounted(() => {
                         </div>
 
                         <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink 
-                                v-if="user && user.profile_id != 2"
+                            <ResponsiveNavLink
+                                v-if="user && (!user.profiles?.includes('prestador') || user.profiles?.includes('proprietario'))"
                                 :href="route('authorizations.index', user.id)"
                             >
                                 Autorizações

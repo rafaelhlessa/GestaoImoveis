@@ -18,9 +18,23 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user();
+
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'address' => $user->address,
+                'city' => $user->city,
+                'city_id' => $user->city_id,
+                'cpf_cnpj' => $user->cpf_cnpj,
+                'profiles' => $user->profiles->pluck('slug')->toArray(), // Converter para array de slugs
+                'email_verified_at' => $user->email_verified_at,
+            ],
         ]);
     }
 
@@ -29,13 +43,29 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        
         $user = $request->user();
-        $user->fill($request->validated());
+        $validated = $request->validated();
+
+        // Separar profiles dos outros dados
+        $profiles = $validated['profiles'] ?? [];
+        unset($validated['profiles']);
+
+        // Atualizar dados básicos do usuário
+        $user->fill($validated);
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
         }
         $user->save();
+
+        // Sincronizar profiles
+        if (!empty($profiles)) {
+            $profileIds = \App\Models\Profile::whereIn('slug', $profiles)->pluck('id');
+            $user->profiles()->sync($profileIds);
+        } else {
+            // Se não há profiles, remover todos
+            $user->profiles()->detach();
+        }
+
         return Redirect::route('profile.edit')->with('status', 'Perfil atualizado com sucesso!');
     }
 

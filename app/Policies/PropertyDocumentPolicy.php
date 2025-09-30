@@ -14,25 +14,21 @@ class PropertyDocumentPolicy
 
     public function before(User $user, $ability)
     {
-        if ($user->profile_id === User::PROFILE_ADMIN) {
-            return true;
-        }
+    // Se desejar manter um perfil admin acumulável, ajuste aqui
+    // Exemplo: if ($user->hasProfile('admin')) { return true; }
     }
 
     public function viewAny(User $user)
     {
-        return in_array($user->profile_id, [
-            User::PROFILE_ADMIN,
-            User::PROFILE_MANAGER,
-            User::PROFILE_VIEWER,
-        ]);
+    // Permitir qualquer usuário autenticado visualizar
+    return true;
     }
 
     public function view(User $user, PropertyDocument $propertyDocument)
     {
         // Busca a propriedade relacionada ao documento
         $property = $propertyDocument->property;
-        
+
         if (!$property) {
             return false;
         }
@@ -67,17 +63,15 @@ class PropertyDocumentPolicy
 
     public function create(User $user)
     {
-        return in_array($user->profile_id, [
-            User::PROFILE_ADMIN,
-            User::PROFILE_MANAGER,
-        ]);
+    // Permitir proprietário ou prestador criar
+    return $user->hasProfile('proprietario') || $user->hasProfile('prestador');
     }
 
     public function update(User $user, PropertyDocument $propertyDocument)
     {
         // Busca a propriedade relacionada ao documento
         $property = $propertyDocument->property;
-        
+
         if (!$property) {
             return false;
         }
@@ -114,7 +108,7 @@ class PropertyDocumentPolicy
     {
         // Busca a propriedade relacionada ao documento
         $property = $propertyDocument->property;
-        
+
         if (!$property) {
             return false;
         }

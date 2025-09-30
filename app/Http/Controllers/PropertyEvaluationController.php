@@ -30,45 +30,28 @@ class PropertyEvaluationController extends BaseController
      */
     private function canAccessProperty(Property $property, $user)
     {
-        switch ($user->profile_id) {
-            case 1: // Proprietário puro
-                return PropertyUser::where('property_id', $property->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-            case 2: // Prestador de serviço
-                return DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('can_view_documents', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-            case 3: // Proprietário/Prestador
-                $isOwner = PropertyUser::where('property_id', $property->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-                if ($isOwner) return true;
-
-                return DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('can_view_documents', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-            default:
-                return false;
+        // Proprietário: acesso se for dono direto ou via property_user
+        if ($user->hasProfile('proprietario')) {
+            $isOwner = PropertyUser::where('property_id', $property->id)
+                ->where('user_id', $user->id)
+                ->exists();
+            if ($isOwner) return true;
         }
+        // Prestador: acesso se tiver autorização
+        if ($user->hasProfile('prestador')) {
+            $hasAuth = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('can_view_documents', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
+            if ($hasAuth) return true;
+        }
+        return false;
     }
 
     /**
@@ -81,54 +64,36 @@ class PropertyEvaluationController extends BaseController
             $user = \App\Models\User::with('activity')->find($user->id);
         }
 
-        switch ($user->profile_id) {
-            case 1: // Proprietário puro - NUNCA pode avaliar
-                return false;
-
-            case 2: // Prestador de serviço
-                $hasAuthorization = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('evaluation_permission', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-                return $hasAuthorization && 
-                       $user->activity && 
-                       (bool) $user->activity->evaluation_permission;
-
-            case 3: // Proprietário/Prestador
-                $isOwner = PropertyUser::where('property_id', $property->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-                if ($isOwner) {
-                    return $user->activity && (bool) $user->activity->evaluation_permission;
-                }
-
-                // Se não é proprietário, verifica como prestador
-                $hasAuthorization = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('evaluation_permission', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-                return $hasAuthorization && 
-                       $user->activity && 
-                       (bool) $user->activity->evaluation_permission;
-
-            default:
-                return false;
+        // Proprietário puro: nunca pode avaliar
+        if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
+            return false;
         }
+        // Prestador: pode avaliar se tiver autorização e permissão
+        if ($user->hasProfile('prestador')) {
+            $hasAuthorization = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('evaluation_permission', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
+            if ($hasAuthorization && $user->activity && (bool) $user->activity->evaluation_permission) {
+                return true;
+            }
+        }
+        // Proprietário/Prestador: se for dono, precisa permissão de activity
+        if ($user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
+            $isOwner = PropertyUser::where('property_id', $property->id)
+                ->where('user_id', $user->id)
+                ->exists();
+            if ($isOwner) {
+                return $user->activity && (bool) $user->activity->evaluation_permission;
+            }
+        }
+        return false;
     }
 
     // GET /properties/{property}/evaluations
@@ -136,11 +101,11 @@ class PropertyEvaluationController extends BaseController
     {
         try {
             $user = Auth::user();
-            
+
             if (!$this->canAccessProperty($property, $user)) {
                 abort(403, 'Acesso não autorizado.');
             }
-            
+
             $evaluations = PropertyEvaluation::with('user')
                 ->where('property_id', $property->id)
                 ->orderBy('created_at', 'desc')
@@ -157,7 +122,7 @@ class PropertyEvaluationController extends BaseController
                 'property_id' => $property->id,
                 'user_id' => Auth::id()
             ]);
-            
+
             return back()->withErrors(['error' => 'Erro ao carregar avaliações: ' . $e->getMessage()]);
         }
     }
@@ -167,11 +132,11 @@ class PropertyEvaluationController extends BaseController
     {
         try {
             $user = Auth::user();
-            
+
             if (!$this->canAccessProperty($property, $user)) {
                 abort(403, 'Acesso não autorizado.');
             }
-            
+
             if (!$this->canCreateEvaluation($property, $user)) {
                 abort(403, 'Você não tem permissão para criar avaliações desta propriedade.');
             }
@@ -203,9 +168,9 @@ class PropertyEvaluationController extends BaseController
 
         try {
             $user = Auth::user();
-            
+
             // VERIFICAÇÃO SIMPLIFICADA: só verifica se é prestador de serviço
-            if ($user->profile_id !== 2 && $user->profile_id !== 3) {
+            if (!$user->hasProfile('prestador')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Apenas prestadores de serviço podem criar avaliações.'
@@ -219,7 +184,7 @@ class PropertyEvaluationController extends BaseController
                     ->where('service_provider_id', $user->id)
                     ->where('owner_id', $propertyOwner->user_id)
                     ->first();
-                    
+
                 if (!$existingAuth) {
                     Log::info('Criando autorização automática');
                     DB::table('authorizations')->insert([
@@ -262,9 +227,9 @@ class PropertyEvaluationController extends BaseController
                 'construction_types' => 'nullable',
                 'farming_types' => 'nullable',
             ]);
-            
+
             Log::info('Validação passou, salvando...');
-            
+
             // Adicionar IDs obrigatórios
             $validated['property_id'] = $property->id;
             $validated['user_id'] = $user->id;
@@ -329,7 +294,7 @@ class PropertyEvaluationController extends BaseController
     {
         try {
             $user = Auth::user();
-            
+
             if (!$this->canAccessProperty($property, $user)) {
                 abort(403, 'Acesso não autorizado.');
             }
@@ -370,7 +335,7 @@ class PropertyEvaluationController extends BaseController
 
         try {
             $user = Auth::user();
-            
+
             if (!$this->canAccessProperty($property, $user)) {
                 abort(403, 'Acesso não autorizado.');
             }
@@ -379,7 +344,7 @@ class PropertyEvaluationController extends BaseController
             if ($evaluation->property_id !== $property->id) {
                 abort(404);
             }
-            
+
             // Validação simples
             $validated = $request->validate([
                 'appraiser' => 'required|string|max:255',
@@ -387,7 +352,7 @@ class PropertyEvaluationController extends BaseController
                 'comments' => 'nullable|string|max:1000',
                 'observations' => 'nullable|string|max:2000',
             ]);
-            
+
             // Garantir que não altere property_id e user_id
             $validated['user_id'] = $evaluation->user_id;
 
@@ -428,7 +393,7 @@ class PropertyEvaluationController extends BaseController
     {
         try {
             $user = Auth::user();
-            
+
             if (!$this->canAccessProperty($property, $user)) {
                 abort(403, 'Acesso não autorizado.');
             }
@@ -437,7 +402,7 @@ class PropertyEvaluationController extends BaseController
             if ($evaluation->property_id !== $property->id) {
                 abort(404);
             }
-            
+
             Log::info('Excluindo avaliação', [
                 'property_id' => $property->id,
                 'evaluation_id' => $evaluation->id,

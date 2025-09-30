@@ -5,18 +5,12 @@ import { Link } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <div
-        class="flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0 dark:bg-gray-900"
-    >
-        <div class="pt-6">
-            <img src="/storage/logo2.png" class="h-auto w-40" alt="Logo" />
-            <!-- <Link href="/">
-                <Logo class="h-20 w-20 fill-current text-gray-500" />
-            </Link> -->
-        </div>
-
-        <div class="mt-6 w-full overflow-hidden bg-white px-6 py-4 shadow-md sm:rounded-lg sm:w-1/2 dark:bg-gray-800">
-            <slot />
+    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <!-- Conteúdo Principal -->
+        <div class="flex justify-center items-center min-h-screen px-4 py-4">
+            <div class="w-full max-w-7xl">
+                <slot />
+            </div>
         </div>
     </div>
 </template>

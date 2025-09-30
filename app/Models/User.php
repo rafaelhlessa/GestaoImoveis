@@ -19,9 +19,51 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    // Perfis antigos (depreciados)
     public const PROFILE_ADMIN   = 3;
     public const PROFILE_MANAGER = 2;
     public const PROFILE_VIEWER  = 1;
+
+    // Perfis novos (acumuláveis)
+    public const PROFILE_PROPRIETARIO = 'proprietario';
+    public const PROFILE_PRESTADOR    = 'prestador';
+    /**
+     * Relação N:N com perfis
+     */
+    public function profiles()
+    {
+        return $this->belongsToMany(Profile::class);
+    }
+
+    /**
+     * Verifica se o usuário possui um perfil pelo slug
+     */
+    public function hasProfile($slug)
+    {
+        return $this->profiles->contains('slug', $slug);
+    }
+
+    /**
+     * Adiciona um perfil ao usuário
+     */
+    public function addProfile($slug)
+    {
+        $profile = Profile::where('slug', $slug)->first();
+        if ($profile && !$this->hasProfile($slug)) {
+            $this->profiles()->attach($profile->id);
+        }
+    }
+
+    /**
+     * Remove um perfil do usuário
+     */
+    public function removeProfile($slug)
+    {
+        $profile = Profile::where('slug', $slug)->first();
+        if ($profile && $this->hasProfile($slug)) {
+            $this->profiles()->detach($profile->id);
+        }
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -34,7 +76,6 @@ class User extends Authenticatable
         'email',
         'address',
         'phone',
-        'profile_id',
         'city',
         'city_id',
         'type',
@@ -47,7 +88,6 @@ class User extends Authenticatable
 
     protected $casts = [
         'is_active' => 'boolean',
-        'profile_id' => 'integer',
     ];
 
     /**
@@ -130,36 +170,14 @@ class User extends Authenticatable
 
     // Helper method to get authenticated user's activity
     public static function getAuthenticatedUserActivity()
-    {            
+    {
         if (Auth::check()) {
             return Auth::user()->activity;
         }
         return null;
     }
 
-    /**
-     * Verifica se o usuário tem permissão para avaliar propriedades
-     */
-    public function canEvaluateProperties()
-    {
-        // Proprietários puros (profile_id 1) não podem avaliar
-        if ($this->profile_id === 1) {
-            return false;
-        }
-        
-        // Prestadores de serviço (profile_id 2) dependem da tabela authorizations
-        if ($this->profile_id === 2) {
-            // Esta verificação deve ser feita no contexto de uma propriedade específica
-            return null; // Retorna null para indicar que precisa de verificação contextual
-        }
-        
-        // Proprietário/Prestador (profile_id 3) depende da activity
-        if ($this->profile_id === 3) {
-            return $this->activity && $this->activity->evaluation_permission;
-        }
-        
-        return false;
-    }
+    // Removido método canEvaluateProperties baseado em profile_id (usar lógica contextual nos controllers/policies)
 
     /**
      * Accessor para verificar se tem atividade de avaliação

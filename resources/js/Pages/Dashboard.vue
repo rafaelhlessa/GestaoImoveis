@@ -45,9 +45,9 @@ const isLoading = ref(false);
 
 // Verificar se o usuário deve ser redirecionado
 onMounted(() => {
-    
+
     console.log('Stats:', stats.value);
-    
+
     // Access properties from the first evaluation if the array is not empty
     if (recentEvaluations.value && recentEvaluations.value.length > 0) {
         const firstEvaluation = recentEvaluations.value[0];
@@ -57,7 +57,7 @@ onMounted(() => {
         }
     }
 
-if (props.auth.user.profile_id > 1) {
+if (props.auth.user.profiles && props.auth.user.profiles.includes('prestador')) {
     router.get(route('dashboard'));
 }
 });
@@ -65,17 +65,17 @@ if (props.auth.user.profile_id > 1) {
 // Dados para o gráfico de valorização principal
 const mainChartData = computed(() => {
     const allMonths = new Set();
-    
+
     [...valuationData.value.urban, ...valuationData.value.commercial, ...valuationData.value.rural]
         .forEach(item => allMonths.add(item.month));
-    
+
     const sortedMonths = Array.from(allMonths).sort();
-    
+
     const getValueForMonth = (data, month) => {
         const item = data.find(d => d.month === month);
         return item ? item.value : null;
     };
-    
+
     return {
         labels: sortedMonths.map(month => {
             const [year, monthNum] = month.split('-');
@@ -171,7 +171,7 @@ const chartOptions = {
             callbacks: {
                 label: function(context) {
                     if (context.parsed.y === null) return null;
-                    return context.dataset.label + ': R$ ' + 
+                    return context.dataset.label + ': R$ ' +
                            new Intl.NumberFormat('pt-BR').format(context.parsed.y);
                 }
             }
@@ -186,9 +186,9 @@ const chartOptions = {
             display: true,
             ticks: {
                 callback: function(value) {
-                    return 'R$ ' + new Intl.NumberFormat('pt-BR', { 
-                        notation: 'compact', 
-                        compactDisplay: 'short' 
+                    return 'R$ ' + new Intl.NumberFormat('pt-BR', {
+                        notation: 'compact',
+                        compactDisplay: 'short'
                     }).format(value);
                 }
             }
@@ -230,7 +230,7 @@ const barOptions = {
     },
     scales: {
         x: { grid: { display: false } },
-        y: { 
+        y: {
             beginAtZero: true,
             ticks: {
                 stepSize: 1
@@ -253,9 +253,9 @@ const mainStats = computed(() => [
     {
         id: 2,
         name: 'Valor Total do Portfólio',
-        value: 'R$ ' + new Intl.NumberFormat('pt-BR', { 
-            notation: 'compact', 
-            compactDisplay: 'short' 
+        value: 'R$ ' + new Intl.NumberFormat('pt-BR', {
+            notation: 'compact',
+            compactDisplay: 'short'
         }).format(stats.value.totalValue || 0),
         change: `+${stats.value.valueGrowth || 0}%`,
         changeType: (stats.value.valueGrowth || 0) > 0 ? 'positive' : 'negative',
@@ -291,8 +291,8 @@ const statuses = {
 
 // Verificar se há dados
 const hasData = computed(() => {
-    return valuationData.value.urban.length > 0 || 
-           valuationData.value.commercial.length > 0 || 
+    return valuationData.value.urban.length > 0 ||
+           valuationData.value.commercial.length > 0 ||
            valuationData.value.rural.length > 0;
 });
 
@@ -317,7 +317,7 @@ const lastEvaluations = Object.values(recentEvaluations.value).map((evaluation) 
         if (evaluation.properties && evaluation.properties.length > 0) {
             const propertyId = evaluation.properties[0].id;
             const evaluationPropertyId = evaluation.property_id;
-            
+
             if (propertyId !== evaluationPropertyId) {
                 console.warn(`Property ID mismatch: ${propertyId} vs ${evaluationPropertyId}`);
             }
@@ -346,15 +346,15 @@ const formatDateToBRManual = (dateString) => {
   if (!dateString || dateString === null || dateString === undefined) {
     return '-'; // ou return 'Data não informada';
   }
-  
+
   const date = new Date(dateString);
-  
+
   // Verificar se a data é válida
   if (isNaN(date.getTime())) {
     console.error('Data inválida:', dateString);
     return '-'; // ou return 'Data inválida';
   }
-  
+
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -388,11 +388,11 @@ const formatDateToBRManual = (dateString) => {
 
         <div class="py-8">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                
+
                 <!-- Cards de Estatísticas Principais -->
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                    <div 
-                        v-for="stat in mainStats" 
+                    <div
+                        v-for="stat in mainStats"
                         :key="stat.id"
                         class="relative overflow-hidden rounded-xl bg-white px-4 py-5 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200"
                     >
@@ -413,9 +413,9 @@ const formatDateToBRManual = (dateString) => {
                             </div>
                         </div>
                         <div class="mt-4 flex items-center justify-between">
-                            <span 
+                            <span
                                 :class="[
-                                    statuses[stat.changeType], 
+                                    statuses[stat.changeType],
                                     'inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset'
                                 ]"
                             >
@@ -429,7 +429,7 @@ const formatDateToBRManual = (dateString) => {
 
                 <!-- Gráficos Principais -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                    
+
                     <!-- Gráfico de Valorização Principal -->
                     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <div class="flex items-center justify-between mb-6">
@@ -443,20 +443,20 @@ const formatDateToBRManual = (dateString) => {
                             </div>
                             <div class="text-sm text-gray-400">Últimos 12 meses</div>
                         </div>
-                        
+
                         <div v-if="isLoading" class="flex justify-center items-center h-64">
                             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                         </div>
-                        
+
                         <div v-else-if="!hasData" class="flex flex-col items-center justify-center h-64 text-gray-500">
                             <div class="text-6xl mb-4">📊</div>
                             <p class="text-lg font-medium">Nenhuma avaliação encontrada</p>
                             <p class="text-sm text-center">Realize avaliações das suas propriedades para<br>visualizar o gráfico de valorização</p>
                         </div>
-                        
+
                         <div v-else class="h-80">
-                            <Line 
-                                :data="mainChartData" 
+                            <Line
+                                :data="mainChartData"
                                 :options="chartOptions"
                                 style="height: 100%; width: 100%"
                             />
@@ -473,21 +473,21 @@ const formatDateToBRManual = (dateString) => {
                                 Composição por tipo de propriedade
                             </p>
                         </div>
-                        
+
                         <div v-if="hasData" class="h-64">
-                            <Doughnut 
-                                :data="distributionChartData" 
+                            <Doughnut
+                                :data="distributionChartData"
                                 :options="distributionOptions"
                             />
                         </div>
-                        
+
                         <div v-else class="flex items-center justify-center h-64 text-gray-400">
                             <div class="text-center">
                                 <div class="text-4xl mb-2">🏠</div>
                                 <p class="text-sm">Sem dados</p>
                             </div>
                         </div>
-                        
+
                         <!-- Resumo numérico -->
                         <div v-if="hasData" class="mt-6 space-y-3">
                             <div class="flex items-center justify-between text-sm">
@@ -539,16 +539,16 @@ const formatDateToBRManual = (dateString) => {
                             </button>
                         </div>
                     </div>
-                    
+
                     <div class="p-6">
                         <div v-if="properties.length > 0" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            <div 
-                                v-for="property in properties.slice(0, 6)" 
+                            <div
+                                v-for="property in properties.slice(0, 6)"
                                 :key="property.id"
                                 @click="viewProperty(property.id)"
                                 class="group relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer border hover:border-blue-200"
                             >
-                            
+
                                 <div class="flex items-start justify-between mb-3">
                                     <div class="flex-1">
                                         <h4 class="font-medium text-gray-900 group-hover:text-blue-900 transition-colors">
@@ -562,7 +562,7 @@ const formatDateToBRManual = (dateString) => {
                                         {{ property.type }}
                                     </span>
                                 </div>
-                                
+
                                 <div v-for="evaluation in property.evaluations.slice(0, 1)" class="flex items-center justify-between">
                                     <div class="text-left">
                                         <p class="text-sm text-gray-500">Último valor</p>
@@ -577,7 +577,7 @@ const formatDateToBRManual = (dateString) => {
                                         </p>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Indicador de valorização -->
                                 <div class="mt-3 flex items-center justify-between">
                                     <div class="flex items-center text-xs">
@@ -593,7 +593,7 @@ const formatDateToBRManual = (dateString) => {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div v-else class="text-center py-12">
                             <div class="text-6xl mb-4">🏘️</div>
                             <h4 class="text-lg font-medium text-gray-900 mb-2">Nenhuma propriedade cadastrada</h4>

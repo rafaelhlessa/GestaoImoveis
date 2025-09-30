@@ -6,6 +6,7 @@ use App\Mail\AccountActivation;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\User;
+use App\Models\Profile;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -30,8 +31,14 @@ class RegisteredUserController extends Controller
     public function create(): Response
     {
         $activity = Activity::all();
-        // dd($activity);
-        return Inertia::render('Auth/Register', ['activities' => $activity]);
+
+        // Apenas perfis que usuários podem selecionar no registro
+        $profiles = Profile::getPublicProfiles();
+
+        return Inertia::render('Auth/Register', [
+            'activities' => $activity,
+            'profiles' => $profiles
+        ]);
     }
 
     /**
@@ -47,8 +54,7 @@ class RegisteredUserController extends Controller
         $user = User::create([
             'name' => $data['name'],
             'cpf_cnpj' => $data['cpf_cnpj'],
-            'profile_id' => $data['profile_id'],
-            'activity_id' => $data['activity_id'],
+            'activity_id' => $data['activity_id'] ?? null,
             'phone' => $data['phone'],
             'address' => $data['address'],
             'city' => $data['city'],
@@ -60,8 +66,10 @@ class RegisteredUserController extends Controller
             'is_active' => false, // Importante: usuário inicia inativo
         ]);
 
-        if (!empty($data['activity_id'])) {
-            $userData['activity_id'] = $data['activity_id'];
+        // Vincular perfis ao usuário
+        if (!empty($data['profiles'])) {
+            $profileIds = \App\Models\Profile::whereIn('slug', $data['profiles'])->pluck('id');
+            $user->profiles()->attach($profileIds);
         }
 
         event(new Registered($user));

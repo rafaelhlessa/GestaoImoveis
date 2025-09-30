@@ -52,22 +52,28 @@ const openDocument = (document) => {
 
   // Extrai a extensão do arquivo
   const fileExtension = document.file_name.split('.').pop().toLowerCase();
-  const fileUrl = route('property.getDocument', document.id);
-  console.log("📌 URL do documento:", fileUrl);
 
   if (fileExtension === 'kml' || fileExtension === 'kmz') {
-    // 🗺️ Abrir no modal do Leaflet
+    // 🗺️ Usar rota específica para KML com CORS adequado
+    const fileUrl = route('property.kml.serve', document.id);
+    console.log("�️ URL do KML:", fileUrl);
     selectedKmlUrl.value = fileUrl;
     showKmlModal.value = true;
-  } else if (fileExtension === 'pdf') {
-    // 📄 Abrir PDF em nova aba
-    window.open(fileUrl, '_blank');
-} else if (fileExtension === 'doc' || fileExtension === 'docx') {
-    // 📥 Baixar arquivo .doc ou .docx
-    window.open(fileUrl, '_blank');
   } else {
-    // ⚠️ Tipo de arquivo desconhecido
-    alert('Formato de arquivo não suportado para visualização.');
+    // � Usar rota geral para outros documentos
+    const fileUrl = route('property.getDocument', document.id);
+    console.log("📄 URL do documento:", fileUrl);
+
+    if (fileExtension === 'pdf') {
+      // 📄 Abrir PDF em nova aba
+      window.open(fileUrl, '_blank');
+    } else if (fileExtension === 'doc' || fileExtension === 'docx') {
+      // 📥 Baixar arquivo .doc ou .docx
+      window.open(fileUrl, '_blank');
+    } else {
+      // ⚠️ Tipo de arquivo desconhecido
+      alert('Formato de arquivo não suportado para visualização.');
+    }
   }
 };
 
@@ -170,7 +176,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800">
                     <div class="p-6 text-gray-900 dark:text-gray-100">
-                        
+
                         <!-- Loading State -->
                         <div v-if="!isPropertyLoaded" class="flex justify-center items-center py-12">
                             <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
@@ -179,17 +185,17 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                         <!-- Property Content -->
                         <div v-else class="bg-white">
                             <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
-                                
+
                                 <div class="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8">
-                                    
+
                                     <!-- Image gallery -->
                                     <TabGroup as="div" class="flex flex-col-reverse">
                                         <TabPanels>
                                             <TabPanel>
-                                                <img 
-                                                    :src="getImageSrc(currentProperty.file_photo)" 
-                                                    :alt="`Foto da propriedade ${currentProperty.nickname}`"  
-                                                    class="aspect-square w-full object-cover sm:rounded-lg" 
+                                                <img
+                                                    :src="getImageSrc(currentProperty.file_photo)"
+                                                    :alt="`Foto da propriedade ${currentProperty.nickname}`"
+                                                    class="aspect-square w-full object-cover sm:rounded-lg"
                                                 />
                                             </TabPanel>
                                         </TabPanels>
@@ -210,7 +216,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                             <p class="text-1xl tracking-tight text-gray-900">{{ currentProperty.district }}</p>
                                             <p class="text-1xl tracking-tight text-gray-900">{{ currentProperty.locality }}</p>
                                         </div>
-                                        
+
                                         <div class="relative mt-4">
                                             <div class="absolute inset-0 flex items-center" aria-hidden="true">
                                                 <div class="w-full border-t border-gray-300" />
@@ -222,13 +228,13 @@ const getOwnershipTypeName = (typeOwnershipId) => {
 
                                         <div class="mt-6">
                                             <div class="space-y-6 text-base text-gray-700">
-                                                <p v-if="currentProperty.type_property === 2"> 
-                                                    Trata-se de propriedade rural no município de {{ currentProperty.city }}, {{ currentProperty.district }} na localidade {{ currentProperty.locality }}, 
-                                                    medindo {{ currentProperty.area }} - {{ currentProperty.unit }}. 
+                                                <p v-if="currentProperty.type_property === 2">
+                                                    Trata-se de propriedade rural no município de {{ currentProperty.city }}, {{ currentProperty.district }} na localidade {{ currentProperty.locality }},
+                                                    medindo {{ currentProperty.area }} - {{ currentProperty.unit }}.
                                                 </p>
-                                                <p v-if="currentProperty.type_property === 1"> 
-                                                    Trata-se de propriedade urbana no município de {{ currentProperty.city }}, bairro {{ currentProperty.locality }}, 
-                                                    medindo {{ currentProperty.area }} {{ currentProperty.unit }}. 
+                                                <p v-if="currentProperty.type_property === 1">
+                                                    Trata-se de propriedade urbana no município de {{ currentProperty.city }}, bairro {{ currentProperty.locality }},
+                                                    medindo {{ currentProperty.area }} {{ currentProperty.unit }}.
                                                 </p>
                                             </div>
                                             <div v-if="currentProperty.about">
@@ -316,7 +322,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                                                                     Fechar
                                                                                                 </button>
                                                                                             </div>
-                                                                                        </div>    
+                                                                                        </div>
                                                                                     </div>
                                                                                 </transition>
 
@@ -351,7 +357,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                 </Disclosure>
                                             </div>
                                         </section>
-                                        
+
                                         <div v-if="canEdit" class="mt-4 flex justify-between items-end">
                                             <button @click="goToEdit" class="ml-auto bg-gray-600 border border-gray-700 rounded py-2 px-4 text-gray-50 hover:text-gray-100 hover:bg-gray-900">
                                                 Editar Propriedade

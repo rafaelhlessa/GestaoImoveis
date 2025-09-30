@@ -46,6 +46,7 @@ const props = defineProps({
 // Estados para modais
 const showKmlModal = ref(false);
 const selectedKmlUrl = ref(null);
+const kmlError = ref(null);
 const showModalDocumentShow = ref(false);
 const showEvaluationModal = ref(false);
 const showEvaluationsListModal = ref(false);
@@ -59,10 +60,10 @@ const isDirectOwner = computed(() => {
     }
 
     // Verificar se o usuário atual é proprietário direto da propriedade
-    const directOwner = props.owners.find(owner => 
+    const directOwner = props.owners.find(owner =>
         owner.user_id === auth.user.id || owner.id === auth.user.id
     );
-    
+
     return !!directOwner;
 });
 
@@ -73,7 +74,7 @@ const hasAuthorization = computed(() => {
         // Verificar se a autorização se aplica a um dos proprietários da propriedade
         return props.owners.some(owner => owner.id === props.authorization.owner_id);
     }
-    
+
     return false;
 });
 
@@ -85,17 +86,17 @@ const isOwner = computed(() => {
 // ✅ CORRIGIDO: Computed para verificar quem pode ver TODOS os documentos
 const canViewAllDocuments = computed(() => {
     // Perfil 1 (Proprietário): pode ver todos os documentos das suas propriedades
-    if (auth.user.profile_id === 1 && isDirectOwner.value) {
+    if (auth.user.profiles && auth.user.profiles.includes('proprietario') && !auth.user.profiles.includes('prestador') && isDirectOwner.value) {
         return true;
     }
-    
+
     // Perfil 3 (Híbrido): pode ver todos os documentos quando é:
     // 1. Proprietário direto da propriedade OU
     // 2. Prestador autorizado pelo proprietário
-    if (auth.user.profile_id === 3 && (isDirectOwner.value || hasAuthorization.value)) {
+    if (auth.user.profiles && auth.user.profiles.includes('proprietario') && auth.user.profiles.includes('prestador') && (isDirectOwner.value || hasAuthorization.value)) {
         return true;
     }
-    
+
     return false;
 });
 
@@ -103,15 +104,15 @@ const canViewAllDocuments = computed(() => {
 const canEditDocumentVisibility = computed(() => {
     // Só proprietários diretos podem editar a visibilidade
     // Perfil 1: se for proprietário direto
-    if (auth.user.profile_id === 1 && isDirectOwner.value) {
+    if (auth.user.profiles && auth.user.profiles.includes('proprietario') && !auth.user.profiles.includes('prestador') && isDirectOwner.value) {
         return true;
     }
-    
+
     // Perfil 3: só se for proprietário direto (não se for apenas autorizado)
-    if (auth.user.profile_id === 3 && isDirectOwner.value) {
+    if (auth.user.profiles && auth.user.profiles.includes('proprietario') && auth.user.profiles.includes('prestador') && isDirectOwner.value) {
         return true;
     }
-    
+
     return false;
 });
 
@@ -121,19 +122,19 @@ const canEvaluateProperty = computed(() => {
     console.log('canEvaluate (backend):', props.canEvaluate);
     console.log('canMakeEvaluations (legacy):', props.canMakeEvaluations);
     console.log('userActivity:', props.userActivity);
-    console.log('user profile:', auth.user.profile_id);
-    
+    console.log('user profiles:', auth.user.profiles);
+
     console.log(props)
     // Priorizar a permissão calculada no backend
     if (props.canEvaluate !== undefined) {
         return props.canEvaluate;
     }
-    
+
     // Fallback para compatibilidade
     if (props.canMakeEvaluations !== undefined) {
         return props.canMakeEvaluations;
     }
-    
+
     // Último fallback - nunca deveria chegar aqui
     console.warn('Nenhuma permissão de avaliação encontrada, usando fallback');
     return false;
@@ -143,7 +144,7 @@ const canEvaluateProperty = computed(() => {
 const canViewEvaluations = computed(() => {
     // Proprietários sempre podem ver suas avaliações
     if (isOwner.value) return true;
-    
+
     // Prestadores também podem ver se têm permissão
     return props.canView || false;
 });
@@ -154,20 +155,20 @@ const evaluationStats = computed(() => {
     if (!props.evaluations || !Array.isArray(props.evaluations) || props.evaluations.length === 0) {
         return null;
     }
-    
+
     try {
         const valuations = props.evaluations
             .map(e => parseFloat(e.valuation))
             .filter(val => !isNaN(val) && val > 0); // Filtrar valores inválidos
-        
+
         if (valuations.length === 0) {
             return null;
         }
-        
+
         const average = valuations.reduce((sum, val) => sum + val, 0) / valuations.length;
         const highest = Math.max(...valuations);
         const lowest = Math.min(...valuations);
-        
+
         return {
             count: valuations.length,
             average,
@@ -183,12 +184,12 @@ const evaluationStats = computed(() => {
 // ✅ MODIFICAÇÃO PRINCIPAL: Computed para documentos visíveis baseado no tipo de usuário
 const visibleDocuments = computed(() => {
     if (!props.documents) return [];
-    
+
     // Se pode ver todos os documentos (proprietário ou autorizado), mostra todos
     if (canViewAllDocuments.value) {
         return props.documents;
     }
-    
+
     // Caso contrário (prestadores não autorizados), só mostra os marcados como visíveis
     return props.documents.filter(doc => doc.show === 1);
 });
@@ -228,25 +229,63 @@ const openDocument = (document) => {
   }
 
   const fileExtension = document.file_name.split('.').pop().toLowerCase();
-  const fileUrl = route('property.getDocument', document.id);
 
   if (fileExtension === 'kml' || fileExtension === 'kmz') {
+    // 🗺️ Usar rota específica para KML com CORS adequado
+    const fileUrl = route('property.getKml', document.id);
+    console.log("🗺️ URL do KML:", fileUrl);
+
+    // Resetar erro anterior
+    kmlError.value = null;
     selectedKmlUrl.value = fileUrl;
     showKmlModal.value = true;
-  } else if (fileExtension === 'pdf') {
-    window.open(fileUrl, '_blank');
-  } else if (fileExtension === 'doc' || fileExtension === 'docx') {
-    window.open(fileUrl, '_blank');
   } else {
-    alert('Formato de arquivo não suportado para visualização.');
+    // 📄 Usar rota geral para outros documentos
+    const fileUrl = route('property.getDocument', document.id);
+    console.log("📄 URL do documento:", fileUrl);
+
+    if (fileExtension === 'pdf') {
+      window.open(fileUrl, '_blank');
+    } else if (fileExtension === 'doc' || fileExtension === 'docx') {
+      window.open(fileUrl, '_blank');
+    } else {
+      alert('Formato de arquivo não suportado para visualização.');
+    }
   }
 };
 
+// Função para tratar erros do KML
+const handleKmlError = (error) => {
+  console.error('❌ Erro no KML:', error);
+
+  // Definir mensagem de erro user-friendly
+  let errorMessage = 'Erro desconhecido ao carregar o arquivo KML.';
+
+  if (error.error === 'XML_INVALID') {
+    errorMessage = 'Arquivo KML corrompido ou com formato inválido.';
+  } else if (error.message) {
+    errorMessage = error.message;
+  }
+
+  kmlError.value = errorMessage;
+
+  // Remover a URL do KML para mostrar o erro em vez do mapa
+  selectedKmlUrl.value = null;
+};
+
 const getImageSrc = (base64Data) => {
-    if (!base64Data) return '';
-    return base64Data.startsWith('data:image')
-        ? base64Data
-        : `data:image/jpeg;base64,${base64Data}`;
+    if (!base64Data) {
+        // Retorna uma imagem placeholder se não houver dados
+        return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2Y1ZjVmNSIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5TZW0gSW1hZ2VtPC90ZXh0Pgo8L3N2Zz4=';
+    }
+
+    // Se já contém o prefix data:image, retorna como está
+    if (base64Data.startsWith('data:image')) {
+        return base64Data;
+    }
+
+    // Se não contém, adiciona o prefix para JPEG
+    return `data:image/jpeg;base64,${base64Data}`;
 };
 
 const goToPropriety = (id) => {
@@ -324,14 +363,33 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                     <div class="p-6 text-gray-900 dark:text-gray-100">
                         <div class="bg-white">
                             <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
-                                
+
                                 <div class="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8">
-                                    
+
                                     <!-- Image gallery -->
                                     <TabGroup as="div" class="flex flex-col-reverse">
                                         <TabPanels>
                                             <TabPanel>
-                                                <img :src="getImageSrc(props.property.file_photo)" alt="Foto da propriedade"  class="aspect-square w-full object-cover sm:rounded-lg" />
+                                                <div class="aspect-square w-full bg-gray-100 rounded-lg overflow-hidden">
+                                                    <img
+                                                        :src="getImageSrc(props.property.file_photo)"
+                                                        alt="Foto da propriedade"
+                                                        class="w-full h-full object-cover"
+                                                        @error="$event.target.style.display = 'none'"
+                                                        @load="$event.target.style.display = 'block'"
+                                                    />
+                                                    <div
+                                                        v-if="!props.property.file_photo"
+                                                        class="w-full h-full flex items-center justify-center text-gray-400"
+                                                    >
+                                                        <div class="text-center">
+                                                            <svg class="mx-auto h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                            </svg>
+                                                            <p class="mt-2 text-sm">Sem imagem</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </TabPanel>
                                         </TabPanels>
                                     </TabGroup>
@@ -349,11 +407,11 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                             <p class="text-1xl tracking-tight text-gray-900">{{ props.property.district }}</p>
                                             <p class="text-1xl tracking-tight text-gray-900">{{ props.property.locality }}</p>
                                         </div>
-                                        
+
                                         <!-- Estatísticas de Avaliações (se pode ver avaliações) -->
-                                        <div v-if="auth.user.profile_id !== 2" class="mt-6 p-4 bg-blue-50 rounded-lg">
+                                        <div v-if="!auth.user.profiles || !auth.user.profiles.includes('prestador')" class="mt-6 p-4 bg-blue-50 rounded-lg">
                                             <h3 class="text-sm font-medium text-blue-900 mb-2">Resumo das Avaliações</h3>
-                                            
+
                                             <!-- ✅ CORRIGIDO: Verificação se existem avaliações -->
                                             <div v-if="evaluationStats && evaluationStats.count > 0">
                                                 <div class="grid grid-cols-2 gap-4">
@@ -383,14 +441,14 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             <!-- ✅ NOVO: Mensagem quando não há avaliações -->
                                             <div v-else class="text-center text-gray-500">
                                                 <div class="text-sm">Nenhuma avaliação disponível</div>
                                                 <div class="text-xs text-gray-400 mt-1">Esta propriedade ainda não foi avaliada</div>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="relative mt-4">
                                             <div class="absolute inset-0 flex items-center" aria-hidden="true">
                                                 <div class="w-full border-t border-gray-300" />
@@ -403,13 +461,13 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                         <div class="mt-6">
                                             <h3 class="sr-only">Description</h3>
                                             <div class="space-y-6 text-base text-gray-700">
-                                                <p v-if="props.property.type_property === 2"> 
-                                                    Trata-se de propriedade rural no município de {{ props.property.city }}, {{ props.property.district }} na localidade {{ props.property.locality }}, 
-                                                    medindo {{ props.property.area }} - {{ props.property.unit }}. 
+                                                <p v-if="props.property.type_property === 2">
+                                                    Trata-se de propriedade rural no município de {{ props.property.city }}, {{ props.property.district }} na localidade {{ props.property.locality }},
+                                                    medindo {{ props.property.area }} - {{ props.property.unit }}.
                                                 </p>
-                                                <p v-if="props.property.type_property === 1"> 
-                                                    Trata-se de propriedade urbana no município de {{ props.property.city }}, bairro {{ props.property.locality }}, 
-                                                    medindo {{ props.property.area }} {{ props.property.unit }}. 
+                                                <p v-if="props.property.type_property === 1">
+                                                    Trata-se de propriedade urbana no município de {{ props.property.city }}, bairro {{ props.property.locality }},
+                                                    medindo {{ props.property.area }} {{ props.property.unit }}.
                                                 </p>
                                             </div>
                                             <div v-if="props.property.about">
@@ -450,11 +508,11 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                             <span :class="[open ? 'text-indigo-600' : 'text-gray-900', 'text-sm font-medium flex items-center']">
                                                                 {{ detail.name }}
                                                                 <!-- Badge de visibilidade para proprietários -->
-                                                                <span v-if="canViewAllDocuments && !isDocumentVisibleToServiceProviders(detail)" 
+                                                                <span v-if="canViewAllDocuments && !isDocumentVisibleToServiceProviders(detail)"
                                                                       class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
                                                                     Oculto para prestadores
                                                                 </span>
-                                                                <span v-else-if="canViewAllDocuments && isDocumentVisibleToServiceProviders(detail)" 
+                                                                <span v-else-if="canViewAllDocuments && isDocumentVisibleToServiceProviders(detail)"
                                                                       class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                                                                     Visível para prestadores
                                                                 </span>
@@ -502,7 +560,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                                                 <transition name="showModalDocumentShow">
                                                                                     <div v-if="showModalDocumentShow" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
                                                                                         <div v-if="canViewAllDocuments" class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
-                                                                                            
+
                                                                                             <h3 v-if="detail.show === 0" class="text-lg font-medium text-gray-900 mb-4">Tornar documento visível para prestadores?</h3>
                                                                                             <h3 v-else class="text-lg font-medium text-gray-900 mb-4">Ocultar documento dos prestadores?</h3>
                                                                                             <div>
@@ -513,12 +571,12 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                                                                         <strong>Nota:</strong> Como proprietário, você sempre poderá visualizar todos os documentos da sua propriedade, independente desta configuração.
                                                                                                     </p>
                                                                                                 </div>
-                                                                                                
+
                                                                                                 <div class="flex justify-end">
                                                                                                     <button @click="showModalDocumentShow = false" class="mr-2 rounded-md bg-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 shadow-xs hover:bg-gray-400">
                                                                                                         Cancelar
                                                                                                     </button>
-                                                                                                    
+
                                                                                                     <button @click="documentShow(detail.id)" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500">
                                                                                                         Confirmar
                                                                                                     </button>
@@ -533,7 +591,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                                                                     Fechar
                                                                                                 </button>
                                                                                             </div>
-                                                                                        </div>    
+                                                                                        </div>
                                                                                     </div>
                                                                                 </transition>
                                                                             </div>
@@ -549,15 +607,15 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                 </Disclosure>
                                             </div>
                                         </section>
-                                        
+
                                         <!-- ✅ CORREÇÃO: Botões de Ação com Permissões Corretas -->
                                         <div class="mt-8 border-t border-gray-200 pt-6">
                                             <div class="flex flex-col sm:flex-row gap-4 justify-end">
-                                                
+
                                                 <!-- Botão de Ver Avaliações (Proprietários e Prestadores autorizados) -->
-                                                <button 
-                                                    v-if="auth.user.profile_id !== 2"
-                                                    @click="showEvaluationPropriety(props.property.id)" 
+                                                <button
+                                                    v-if="!auth.user.profiles || !auth.user.profiles.includes('prestador')"
+                                                    @click="showEvaluationPropriety(props.property.id)"
                                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                                                     :title="`Ver ${(props.evaluations && Array.isArray(props.evaluations)) ? props.evaluations.length : 0} avaliações desta propriedade`"
                                                 >
@@ -566,11 +624,11 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                     </svg>
                                                     Ver Avaliações ({{ (props.evaluations && Array.isArray(props.evaluations)) ? props.evaluations.length : 0 }})
                                                 </button>
-                                                
+
                                                 <!-- Botão de Avaliar (Prestadores autorizados) -->
-                                                <button 
+                                                <button
                                                     v-if="canEvaluateProperty"
-                                                    @click="goToEvaluation(props.property.id)" 
+                                                    @click="goToEvaluation(props.property.id)"
                                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                                                     title="Criar nova avaliação desta propriedade"
                                                 >
@@ -580,11 +638,11 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                     </svg>
                                                     Avaliar Propriedade
                                                 </button>
-                                                
+
                                                 <!-- Botão de Editar -->
-                                                <button 
+                                                <button
                                                     v-if="props.canEdit"
-                                                    @click="goToPropriety(props.property.id)" 
+                                                    @click="goToPropriety(props.property.id)"
                                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                                                     title="Editar informações desta propriedade"
                                                 >
@@ -594,7 +652,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                     Editar Propriedade
                                                 </button>
                                             </div>
-                                            
+
                                             <!-- Debug info (remover em produção) -->
                                             <div v-if="$page.props.app?.debug" class="mt-4 text-xs text-gray-500 bg-gray-50 p-2 rounded">
                                                 <strong>Debug Permissões:</strong><br>
@@ -609,7 +667,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                 canViewAllDocuments: {{ canViewAllDocuments }}<br>
                                                 canEditDocumentVisibility: {{ canEditDocumentVisibility }}<br>
                                                 userActivity: {{ props.userActivity?.evaluation_permission }}<br>
-                                                profile: {{ auth.user.profile_id }}
+                                                profiles: {{ auth.user.profiles }}
                                             </div>
                                         </div>
                                     </div>
@@ -634,19 +692,28 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                 </svg>
                             </button>
                         </div>
-                        
+
                         <div class="p-4" style="height: calc(100% - 140px);">
-                            <KmlMap 
-                                v-if="selectedKmlUrl" 
+                            <KmlMap
+                                v-if="selectedKmlUrl"
                                 ref="kmlMapRef"
-                                :kmlUrl="selectedKmlUrl" 
+                                :kmlUrl="selectedKmlUrl"
                                 height="100%"
+                                @kml-error="handleKmlError"
                             />
+                            <div v-else-if="kmlError" class="flex flex-col items-center justify-center h-full p-6">
+                                <div class="text-red-500 text-6xl mb-4">⚠️</div>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2">Erro no arquivo KML</h3>
+                                <p class="text-gray-600 text-center mb-4">{{ kmlError }}</p>
+                                <p class="text-sm text-gray-500 text-center">
+                                    O arquivo KML pode estar corrompido. Por favor, faça upload de um novo arquivo.
+                                </p>
+                            </div>
                             <div v-else class="flex items-center justify-center h-full">
                                 <p class="text-gray-500">Nenhum KML disponível para esta propriedade.</p>
                             </div>
                         </div>
-                        
+
                         <div class="flex justify-end p-4 border-t bg-gray-50">
                             <button @click="showKmlModal = false" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
                                 Fechar

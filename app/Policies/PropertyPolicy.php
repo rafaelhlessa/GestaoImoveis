@@ -18,15 +18,15 @@ class PropertyPolicy
         Log::info('=== PropertyPolicy::update - INÍCIO ===', [
             'user_id' => $user->id,
             'user_name' => $user->name,
-            'user_profile' => $user->profile_id,
+            'user_profiles' => $user->profiles->pluck('slug')->toArray(),
             'property_id' => $property->id,
             'property_nickname' => $property->nickname ?? 'N/A',
             'property_owner_id' => $property->owner_id
         ]);
 
-        // ✅ CORREÇÃO: Para perfil 1 (proprietário), sempre permitir se for dono
-        if ($user->profile_id === 1) {
-            
+    // Proprietário: sempre permitir se for dono
+    if ($user->hasProfile('proprietario')) {
+
             // Primeiro verifica se é o owner direto da propriedade
             $isDirectOwner = $property->owner_id == $user->id;
             Log::info('Profile 1 - Verificação owner direto:', [
@@ -44,7 +44,7 @@ class PropertyPolicy
             $propertyUserExists = PropertyUser::where('property_id', $property->id)
             ->where('user_id', $user->id)
             ->exists();
-            
+
             Log::info('Profile 1 - Verificação property_user:', [
                 'exists' => $propertyUserExists,
                 'query_sql' => PropertyUser::where('property_id', $property->id)
@@ -62,8 +62,8 @@ class PropertyPolicy
             return false;
         }
 
-        // Para perfil 2 (prestador)
-        if ($user->profile_id === 2) {
+    // Prestador
+    if ($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
             $canEdit = DB::table('authorizations')
                 ->where('service_provider_id', $user->id)
                 ->where('can_create_properties', 1)
@@ -79,8 +79,8 @@ class PropertyPolicy
             return $canEdit;
         }
 
-        // Para perfil 3 (proprietário/prestador)
-        if ($user->profile_id === 3) {
+    // Proprietário e Prestador
+    if ($user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
             // Primeiro verifica se é proprietário direto
             $isDirectOwner = $property->owner_id == $user->id;
             if ($isDirectOwner) {
@@ -115,17 +115,17 @@ class PropertyPolicy
         }
 
         Log::warning('PropertyPolicy::update - Profile desconhecido ou não autorizado:', [
-            'profile' => $user->profile_id
+            'profiles' => $user->profiles->pluck('slug')->toArray()
         ]);
         return false;
     }
 
     /**
-     * ✅ Outros métodos simplificados
+     * ✅ Permite que proprietários E prestadores vejam listagem de propriedades
      */
     public function viewAny(User $user): bool
     {
-        return in_array($user->profile_id, [1, 3]);
+        return $user->hasProfile('proprietario') || $user->hasProfile('prestador');
     }
 
     public function view(User $user, Property $property): bool
@@ -135,16 +135,16 @@ class PropertyPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->profile_id, [1, 2, 3]);
+    return $user->hasProfile('proprietario') || $user->hasProfile('prestador');
     }
 
     public function delete(User $user, Property $property): bool
     {
-        if (!in_array($user->profile_id, [1, 3])) {
+        if (!$user->hasProfile('proprietario')) {
             return false;
         }
 
-        return $property->owner_id == $user->id || 
+        return $property->owner_id == $user->id ||
                PropertyUser::where('property_id', $property->id)
                    ->where('user_id', $user->id)
                    ->exists();

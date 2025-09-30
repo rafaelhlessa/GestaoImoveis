@@ -9,7 +9,7 @@ export function useUserFilter(users, authorizations, currentUser) {
    */
   const availableUsers = computed(() => {
     console.log('🔍 availableUsers - Iniciando cálculo')
-    
+
     if (!currentUser.value || !users.value) {
       console.log('❌ availableUsers - Dados faltando:', {
         hasCurrentUser: !!currentUser.value,
@@ -19,7 +19,7 @@ export function useUserFilter(users, authorizations, currentUser) {
       return []
     }
 
-    const userProfile = currentUser.value.profile_id
+  const userProfiles = currentUser.value.profiles || []
     const userId = currentUser.value.id
 
     console.log('👤 availableUsers - Dados:', {
@@ -35,29 +35,29 @@ export function useUserFilter(users, authorizations, currentUser) {
         const ownerResult = users.value.filter(user => user.id === userId)
         console.log('🏠 Proprietário - Resultado:', ownerResult.length, 'usuários')
         return ownerResult
-      
+
       case 2: // Perfil Prestador - apenas autorizados
         const prestadorResult = getAuthorizedUsers(userId)
         console.log('🔧 Prestador - Resultado:', prestadorResult.length, 'usuários')
         return prestadorResult
-      
+
       case 3: // Perfil Misto - ele mesmo + autorizados
         const ownUser = users.value.filter(user => user.id === userId)
         const authorizedUsers = getAuthorizedUsers(userId)
-        
+
         // Combina e remove duplicatas
         const combined = [...ownUser, ...authorizedUsers]
-        const uniqueUsers = combined.filter((user, index, self) => 
+        const uniqueUsers = combined.filter((user, index, self) =>
           index === self.findIndex(u => u.id === user.id)
         )
-        
+
         console.log('👥 Misto - Resultado:', {
           proprio: ownUser.length,
           autorizados: authorizedUsers.length,
           total: uniqueUsers.length
         })
         return uniqueUsers
-      
+
       default:
         console.log('❌ Perfil inválido:', userProfile)
         return []
@@ -69,7 +69,7 @@ export function useUserFilter(users, authorizations, currentUser) {
    */
   const getAuthorizedUsers = (serviceProviderId) => {
     console.log('🔐 getAuthorizedUsers - Para prestador:', serviceProviderId)
-    
+
     if (!authorizations.value || !Array.isArray(authorizations.value)) {
       console.log('❌ Sem autorizações válidas')
       return []
@@ -88,7 +88,7 @@ export function useUserFilter(users, authorizations, currentUser) {
         const isForThisProvider = auth.service_provider_id === serviceProviderId
         const canCreate = auth.can_create_properties === true || auth.can_create_properties === 1
         const isValid = isForThisProvider && canCreate
-        
+
         console.log(`   Auth ${auth.id}: provider=${auth.service_provider_id} (${isForThisProvider}), can_create=${auth.can_create_properties} (${canCreate}), válida=${isValid}`)
         return isValid
       })
@@ -112,7 +112,7 @@ export function useUserFilter(users, authorizations, currentUser) {
    */
   const searchFilteredUsers = (searchTerm) => {
     console.log('🔍 searchFilteredUsers - Termo:', searchTerm)
-    
+
     if (!searchTerm || searchTerm.length < 2) {
       console.log('❌ Termo muito curto')
       return []
@@ -120,7 +120,7 @@ export function useUserFilter(users, authorizations, currentUser) {
 
     const lowerTerm = searchTerm.toLowerCase()
     console.log('🔍 Buscando em', availableUsers.value.length, 'usuários disponíveis')
-    
+
     const result = availableUsers.value.filter(user => {
       const name = user.name ? user.name.toLowerCase() : ''
       const match = name.includes(lowerTerm)
@@ -137,15 +137,15 @@ export function useUserFilter(users, authorizations, currentUser) {
    */
   const canAddOwners = computed(() => {
     console.log('🚦 canAddOwners - Verificando...')
-    
+
     if (!currentUser.value) {
       console.log('❌ Sem usuário atual')
       return false
     }
 
-    const profile = currentUser.value.profile_id
+  const profiles = currentUser.value.profiles || []
     const usersCount = availableUsers.value.length
-    
+
     console.log('📊 Dados para verificação:', {
       profile,
       usersCount,
@@ -154,7 +154,7 @@ export function useUserFilter(users, authorizations, currentUser) {
 
     // REGRA SIMPLES: Se tem usuários disponíveis, pode adicionar
     const canAdd = usersCount > 0
-    
+
     console.log('🎯 canAddOwners - RESULTADO:', canAdd, `(${usersCount} usuários disponíveis)`)
     return canAdd
   })
@@ -164,16 +164,16 @@ export function useUserFilter(users, authorizations, currentUser) {
    */
   const getUserFilterMessage = computed(() => {
     if (!currentUser.value) return ''
-    
-    const profile = currentUser.value.profile_id
+
+  const profiles = currentUser.value.profiles || []
     const count = availableUsers.value.length
-    
+
     let message = ''
     switch (profile) {
       case 1:
         message = 'Como proprietário, você pode cadastrar propriedades para si mesmo.'
         break
-      
+
       case 2:
         if (count === 0) {
           message = 'Nenhum proprietário autorizou você a criar propriedades.'
@@ -181,7 +181,7 @@ export function useUserFilter(users, authorizations, currentUser) {
           message = `Você pode criar propriedades para ${count} proprietário(s) que te autorizaram.`
         }
         break
-      
+
       case 3:
         if (count <= 1) {
           message = 'Você pode criar propriedades para si mesmo.'
@@ -189,7 +189,7 @@ export function useUserFilter(users, authorizations, currentUser) {
           message = `Você pode criar propriedades para si mesmo e mais ${count - 1} proprietário(s).`
         }
         break
-      
+
       default:
         message = 'Perfil não autorizado.'
     }
@@ -224,14 +224,14 @@ export function useUserFilter(users, authorizations, currentUser) {
     availableUsers,        // ✨ NOVO: Lista sempre disponível
     canAddOwners,         // ✅ CORRIGIDO: Baseado em availableUsers
     getUserFilterMessage, // ✅ FUNCIONAL
-    
+
     // COMPATIBILIDADE
     filteredUsers,        // 🔄 Para não quebrar código existente
-    
+
     // MÉTODOS
     searchFilteredUsers,  // ✅ FUNCIONAL
     getAuthorizedUsers,   // ✨ NOVO: Método exposto
-    
+
     // DEBUG
     debugMode,
     debugInfo

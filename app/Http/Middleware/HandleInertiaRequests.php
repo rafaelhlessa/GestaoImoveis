@@ -41,9 +41,8 @@ class HandleInertiaRequests extends Middleware
                     'id' => $request->user()->id,
                     'name' => $request->user()->name,
                     'email' => $request->user()->email,
-                    'profile_id' => $request->user()->profile_id,
+                    'profiles' => $request->user()->profiles->pluck('slug')->toArray(),
                     'is_admin' => $request->user()->is_admin ?? false,
-                    // Adicione outros campos que você precisa
                 ] : null,
             ],
             'flash' => [

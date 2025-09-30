@@ -27,7 +27,7 @@ const colors = {
     blue: "bg-blue-200 text-blue-800",
     yellow: "bg-yellow-100 text-yellow-800",
     gray: "bg-gray-200 text-gray-800",
-};     
+};
 
 const alertClass = computed(() => colors[alert.color] || "bg-gray-200 text-gray-800");
 
@@ -86,7 +86,7 @@ const applyCpfCnpjMask = (value) => {
     }
 };
 
-const showDropdown = ref(false); 
+const showDropdown = ref(false);
 const searchQuery = ref("");
 const selectedProvider = ref(null);
 
@@ -98,7 +98,7 @@ const filteredServiceProviders = computed(() => {
     return (props.serviceProviders || []).filter(provider => {
         const query = searchQuery.value.toLowerCase();
         return (
-            provider.name?.toLowerCase().includes(query) || 
+            provider.name?.toLowerCase().includes(query) ||
             provider.phone?.toLowerCase().includes(query) ||
             provider.cpf_cnpj?.toLowerCase().includes(query)
         );
@@ -114,7 +114,7 @@ const confirmAuthorization = (provider) => {
 
     form.service_input = `${provider.name} - ${applyPhoneMask(provider.phone)} - ${applyCpfCnpjMask(provider.cpf_cnpj)}`;
     form.service_provider_id = provider.id;
-    
+
     setTimeout(() => {
         searchQuery.value = provider.name;
         filteredServiceProviders.value = [];
@@ -168,7 +168,7 @@ const authorizeProvider = () => {
         }, 4000);
         return;
     }
-    
+
     form.owner_id = props.user.id;
     form.service_provider_id = form.service_provider_id;
     form.can_view_documents = form.can_view_documents;
@@ -210,16 +210,16 @@ const submit = () => {
                                                     <div class="flex justify-end">
                                                         <div class="mt-2 relative">
                                                             <div class="relative w-full">
-                                                                <input 
-                                                                    type="text" 
-                                                                    id="search-dropdown" 
-                                                                    v-model="searchQuery" 
-                                                                    @click="handleInputClick" 
-                                                                    placeholder="Busque por Nome, CPF/CNPJ ou Telefone..." 
+                                                                <input
+                                                                    type="text"
+                                                                    id="search-dropdown"
+                                                                    v-model="searchQuery"
+                                                                    @click="handleInputClick"
+                                                                    placeholder="Busque por Nome, CPF/CNPJ ou Telefone..."
                                                                     class="min-w-96 block w-1/3 p-2.5 z-20 text-sm text-gray-900 bg-white rounded-l-lg rounded-e-lg rounded-s-gray-100 rounded-s-2 border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                                                                 />
-                                                                <button 
-                                                                    @click="clear" 
+                                                                <button
+                                                                    @click="clear"
                                                                     class="absolute top-0 end-0 p-2.5 h-full text-sm font-medium text-white bg-gray-700 rounded-e-lg border border-gray-700 hover:bg-gray-800 focus:ring-1 focus:outline-none focus:ring-gray-300 dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800"
                                                                 >
                                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
@@ -230,9 +230,9 @@ const submit = () => {
 
                                                             <!-- Dropdown List -->
                                                             <ul v-if="filteredServiceProviders.length && searchQuery.trim() && showDropdown" class="absolute z-10 mt-2 w-full bg-white shadow-md rounded-md">
-                                                                <li 
-                                                                    v-for="provider in filteredServiceProviders" 
-                                                                    :key="provider.id" 
+                                                                <li
+                                                                    v-for="provider in filteredServiceProviders"
+                                                                    :key="provider.id"
                                                                     @click="confirmAuthorization(provider)"
                                                                     class="cursor-pointer px-4 py-2 hover:bg-indigo-100 text-sm/6 text-gray-900"
                                                                 >
@@ -249,36 +249,36 @@ const submit = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
                                             <div class="col-span-3">
                                                 <label for="propriety-name" class="block text-sm/6 font-medium text-gray-900">
                                                     Proprietário
                                                 </label>
                                                 <div class="mt-2">
-                                                    <input 
-                                                        v-if="$page.props.auth.user.profile_id === 1 || $page.props.auth.user.profile_id === 3" 
-                                                        type="text" 
-                                                        name="propriety-name" 
-                                                        id="propriety-name" 
-                                                        autocomplete="propriety-name" 
-                                                        :value="$page.props.auth.user.name" 
-                                                        readonly 
-                                                        required 
-                                                        class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6" 
+                                                    <input
+                                                        v-if="$page.props.auth.user.profiles && $page.props.auth.user.profiles.includes('proprietario')"
+                                                        type="text"
+                                                        name="propriety-name"
+                                                        id="propriety-name"
+                                                        autocomplete="propriety-name"
+                                                        :value="$page.props.auth.user.name"
+                                                        readonly
+                                                        required
+                                                        class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
                                                     />
                                                 </div>
                                             </div>
-                                            
+
                                             <!-- Service Provider Search -->
                                             <div class="col-span-3 relative">
                                                 <label class="block text-sm/6 font-medium text-gray-900">
                                                     Prestador de Serviço
                                                 </label>
                                                 <div class="mt-2 relative">
-                                                    <input 
-                                                        type="text" 
-                                                        v-model="form.service_input" 
+                                                    <input
+                                                        type="text"
+                                                        v-model="form.service_input"
                                                         readonly
                                                         required
                                                         class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-600 sm:text-sm/6"
@@ -286,9 +286,9 @@ const submit = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <!-- ✅ Seção de Permissões Atualizada -->
-                                        <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-12">   
+                                        <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-12">
                                             <div class="col-span-4">
                                                 <label class="inline-flex items-center mb-5 cursor-pointer">
                                                     <p class="text-gray-800">Pode visualizar documentos?</p>
@@ -315,13 +315,13 @@ const submit = () => {
                                                 </label>
                                             </div>
                                         </div>
-                                        
-                                        <div class="mt-10">        
+
+                                        <div class="mt-10">
                                             <div class="col-span-6 flex justify-end">
                                                 <button type="button" @click="showModal = true" class="text-gray-100 border border-gray-800 rounded p-2 bg-gray-800">
                                                     Conceder Permissão
                                                 </button>
-                                            </div>    
+                                            </div>
                                         </div>
 
                                         <!-- ✅ Modal Confirmação Atualizado -->
@@ -346,13 +346,13 @@ const submit = () => {
                                                                 </li>
                                                             </ul>
                                                         </div>
-                                                        
+
                                                         <div class="flex justify-end">
                                                             <button type="button" @click="showModal = false"
                                                                 class="mr-2 rounded-md bg-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 shadow-xs hover:bg-gray-400 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-gray-500">
                                                                 Cancelar
                                                             </button>
-                                                            <button @click="authorizeProvider" 
+                                                            <button @click="authorizeProvider"
                                                                 class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                                                                 Autorizar
                                                             </button>
@@ -362,10 +362,10 @@ const submit = () => {
                                             </div>
                                         </transition>
                                     </div>
-                                </div>                
+                                </div>
                             </form>
                         </div>
-                        
+
                         <!-- Alert -->
                         <div v-if="alert.show === true" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
                             <div :class="`rounded-md px-14 py-8 ${alertClass}`">

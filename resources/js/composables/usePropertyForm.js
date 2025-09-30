@@ -11,15 +11,15 @@ export function usePropertyForm(props = {}) {
   // DADOS DA PÁGINA E CONFIGURAÇÃO
   // ====================================
   const page = usePage()
-  
+
   // Extrai dados dos props de forma consistente
   const initialData = props.property || null
   const mode = props.mode || 'create'
   const isEditMode = computed(() => mode === 'edit')
-  
+
   // Dados do usuário atual sempre da página
   const currentUser = computed(() => page.props.auth?.user || page.props.currentUser || null)
-  
+
 
   // Dados de entrada
   const allUsers = ref(props.users || [])
@@ -79,6 +79,7 @@ export function usePropertyForm(props = {}) {
   // ESTADO DOS DOCUMENTOS
   // ====================================
   const documents = ref(props.documents || initialData?.documents || [])
+  const documentsToDelete = ref([]) // IDs dos documentos a serem deletados
   const newDocument = reactive({
     name: '',
     date: '',
@@ -125,7 +126,7 @@ export function usePropertyForm(props = {}) {
     alert.message = message
     alert.type = type
     alert.show = true
-    
+
     if (duration > 0) {
       setTimeout(() => {
         alert.show = false
@@ -136,7 +137,7 @@ export function usePropertyForm(props = {}) {
   // ====================================
   // SISTEMA DE AUTORIZAÇÃO DE USUÁRIOS
   // ====================================
-  
+
   /**
    * Usuários disponíveis baseado no perfil do usuário atual
    */
@@ -147,39 +148,43 @@ export function usePropertyForm(props = {}) {
       return []
     }
 
-    const profile = page.props.currentUser.profile_id
-    const userId = page.props.currentUser.id
+  const profiles = currentUser.value?.profiles || []
+    const userId = currentUser.value?.id
 
-    console.log('👤 availableUsers - Perfil:', profile, 'UserId:', userId)
+    console.log('👤 availableUsers - Perfis:', profiles, 'UserId:', userId)
 
-    switch (profile) {
-      case 1: // Proprietário - apenas ele mesmo
+    // Proprietário puro - apenas ele mesmo
+    if (profiles.includes('proprietario') && !profiles.includes('prestador')) {
         const ownerResult = allUsers.value.filter(user => user.id === userId)
         console.log('🏠 Proprietário - Usuários disponíveis:', ownerResult.length)
         return ownerResult
+    }
 
-      case 2: // Prestador de serviço - apenas autorizados
+    // Prestador puro - apenas autorizados
+    if (profiles.includes('prestador') && !profiles.includes('proprietario')) {
         const authorizedResult = getAuthorizedUsersForProvider(userId)
         console.log('🔧 Prestador - Usuários disponíveis:', authorizedResult.length)
         return authorizedResult
+    }
 
-      case 3: // Proprietário/Prestador - ele mesmo + autorizados
+    // Proprietário/Prestador - ele mesmo + autorizados
+    if (profiles.includes('proprietario') && profiles.includes('prestador')) {
         const selfUser = allUsers.value.filter(user => user.id === userId)
         const authorizedUsers = getAuthorizedUsersForProvider(userId)
-        
+
         // Remove duplicatas
         const combined = [...selfUser, ...authorizedUsers]
-        const unique = combined.filter((user, index, self) => 
+        const unique = combined.filter((user, index, self) =>
           index === self.findIndex(u => u.id === user.id)
         )
-        
+
         console.log('👥 Misto - Usuários disponíveis:', unique.length)
         return unique
-
-      default:
-        console.log('❌ Perfil inválido:', profile)
-        return []
     }
+
+    // Caso não tenha perfis válidos
+    console.log('❌ Perfis inválidos:', profiles)
+    return []
   })
 
   /**
@@ -192,8 +197,8 @@ export function usePropertyForm(props = {}) {
   //   }
 
   //   // Filtra autorizações válidas para este prestador
-  //   const validAuthorizations = allAuthorizations.value.filter(auth => 
-  //     auth.service_provider_id === serviceProviderId && 
+  //   const validAuthorizations = allAuthorizations.value.filter(auth =>
+  //     auth.service_provider_id === serviceProviderId &&
   //     (auth.can_create_properties === true || auth.can_create_properties === 1)
   //   )
 
@@ -203,7 +208,7 @@ export function usePropertyForm(props = {}) {
   //   const authorizedOwnerIds = validAuthorizations.map(auth => auth.owner_id)
 
   //   // Busca os objetos de usuário correspondentes
-  //   const authorizedUsers = allUsers.value.filter(user => 
+  //   const authorizedUsers = allUsers.value.filter(user =>
   //     authorizedOwnerIds.includes(user.id)
   //   )
 
@@ -215,27 +220,27 @@ export function usePropertyForm(props = {}) {
 //     // Sempre usar props diretamente para garantir dados atuais
 //     const authorizations = props.authorizations || []
 //     const users = props.users || []
-    
+
 //     console.log('🚀 getAuthorizedUsersForProvider')
 //     console.log('📋 Service Provider ID:', serviceProviderId)
 //     console.log('📊 Authorizations:', authorizations.length)
 //     console.log('📊 Users:', users.length)
-    
+
 //     if (!authorizations.length) {
 //         console.log('❌ Sem autorizações disponíveis')
 //         return []
 //     }
 
 //     const providerIdNum = Number(serviceProviderId)
-//     const validAuthorizations = authorizations.filter(auth => 
-//         Number(auth.service_provider_id) === providerIdNum && 
+//     const validAuthorizations = authorizations.filter(auth =>
+//         Number(auth.service_provider_id) === providerIdNum &&
 //         Number(auth.can_create_properties) === 1
 //     )
 
 //     console.log('🔐 Autorizações válidas:', validAuthorizations.length)
 
 //     const authorizedOwnerIds = validAuthorizations.map(auth => Number(auth.owner_id))
-//     const authorizedUsers = users.filter(user => 
+//     const authorizedUsers = users.filter(user =>
 //         authorizedOwnerIds.includes(Number(user.id))
 //     )
 
@@ -246,35 +251,35 @@ export function usePropertyForm(props = {}) {
 const getAuthorizedUsersForProvider = (serviceProviderId) => {
     // Se já tem users disponíveis e é prestador, use-os diretamente
     const users = props.users || []
-    
-    if (props.currentUser && [2, 3].includes(props.currentUser.profile_id) && users.length > 0) {
+
+  if (props.currentUser && props.currentUser.profiles && props.currentUser.profiles.includes('prestador') && users.length > 0) {
         // O backend já filtrou os usuários autorizados
         return users.filter(user => user.id !== serviceProviderId)
     }
-    
+
     return []
 }
 
 // Função alternativa mais simples para teste
 const getAuthorizedUsersForProviderSimple = (serviceProviderId) => {
   console.log('🧪 TESTE SIMPLES - Service Provider ID:', serviceProviderId)
-  
+
   // Converte para número para garantir
   const providerIdNum = Number(serviceProviderId)
-  
-  const validAuths = allAuthorizations.value.filter(auth => 
-    Number(auth.service_provider_id) === providerIdNum && 
+
+  const validAuths = allAuthorizations.value.filter(auth =>
+    Number(auth.service_provider_id) === providerIdNum &&
     (Number(auth.can_create_properties) === 1)
   )
-  
+
   console.log('🧪 TESTE SIMPLES - Autorizações válidas:', validAuths)
-  
+
   const ownerIds = validAuths.map(auth => Number(auth.owner_id))
   console.log('🧪 TESTE SIMPLES - Owner IDs:', ownerIds)
-  
+
   const users = allUsers.value.filter(user => ownerIds.includes(Number(user.id)))
   console.log('🧪 TESTE SIMPLES - Usuários encontrados:', users)
-  
+
   return users
 }
 
@@ -283,12 +288,12 @@ const debugDataStructure = () => {
   console.log('🔬 ESTRUTURA DOS DADOS:')
   console.log('📋 allAuthorizations.value:', allAuthorizations.value)
   console.log('👥 allUsers.value:', allUsers.value)
-  
+
   if (allAuthorizations.value.length > 0) {
     console.log('📋 Primeira autorização:', allAuthorizations.value[0])
     console.log('📋 Chaves da primeira autorização:', Object.keys(allAuthorizations.value[0]))
   }
-  
+
   if (allUsers.value.length > 0) {
     console.log('👤 Primeiro usuário:', allUsers.value[0])
     console.log('👤 Chaves do primeiro usuário:', Object.keys(allUsers.value[0]))
@@ -310,45 +315,48 @@ const debugDataStructure = () => {
   const getUserFilterMessage = computed(() => {
     if (!currentUser.value) return ''
 
-    const profile = currentUser.value.profile_id
+    const profiles = currentUser.value.profiles || []
     const count = availableUsers.value.length
 
-    switch (profile) {
-      case 1:
+    // Proprietário puro
+    if (profiles.includes('proprietario') && !profiles.includes('prestador')) {
         return 'Como proprietário, você pode cadastrar propriedades apenas para si mesmo.'
-      
-      case 2:
-        return count === 0 
+    }
+
+    // Prestador puro
+    if (profiles.includes('prestador') && !profiles.includes('proprietario')) {
+        return count === 0
           ? 'Nenhum proprietário autorizou você a criar propriedades.'
           : `Você pode criar propriedades para ${count} proprietário(s) que te autorizaram.`
-      
-      case 3:
+    }
+
+    // Proprietário/Prestador
+    if (profiles.includes('proprietario') && profiles.includes('prestador')) {
         return count <= 1
           ? 'Você pode criar propriedades para si mesmo.'
           : `Você pode criar propriedades para si mesmo e mais ${count - 1} proprietário(s).`
-      
-      default:
-        return 'Perfil não autorizado a criar propriedades.'
     }
+
+    return 'Perfil não autorizado a criar propriedades.'
   })
 
   // ====================================
   // MÉTODOS DE BUSCA DE USUÁRIOS
   // ====================================
-  
+
   /**
    * Busca usuários por nome
    */
   const searchUsers = (term) => {
     console.log('🔍 searchUsers:', term)
-    
+
     if (!term || term.length < 2) {
       filteredUsers.value = []
       return
     }
 
     const lowerTerm = term.toLowerCase()
-    filteredUsers.value = availableUsers.value.filter(user => 
+    filteredUsers.value = availableUsers.value.filter(user =>
       user.name.toLowerCase().includes(lowerTerm)
     ).slice(0, 10) // Limita a 10 resultados
 
@@ -358,13 +366,13 @@ const debugDataStructure = () => {
   // ====================================
   // MÉTODOS DE PROPRIETÁRIOS
   // ====================================
-  
+
   /**
    * Seleciona um proprietário
    */
   const selectOwner = (user) => {
     console.log('👤 selectOwner:', user.name)
-    
+
     Object.assign(selectedOwner, {
       id: user.id,
       name: user.name,
@@ -384,7 +392,7 @@ const debugDataStructure = () => {
    */
   const clearOwner = () => {
     console.log('🗑️ clearOwner')
-    
+
     Object.assign(selectedOwner, {
       id: null,
       name: '',
@@ -393,7 +401,7 @@ const debugDataStructure = () => {
       type_ownership: '',
       observations: ''
     })
-    
+
     searchTerm.value = ''
     filteredUsers.value = []
   }
@@ -434,7 +442,7 @@ const debugDataStructure = () => {
     }
 
     // Verifica duplicação
-    const exists = owners.value.find(owner => 
+    const exists = owners.value.find(owner =>
       (owner.user?.id || owner.user_id) === selectedOwner.id
     )
 
@@ -497,7 +505,7 @@ const debugDataStructure = () => {
       const removed = owners.value[index]
       owners.value.splice(index, 1)
       form.owners = owners.value
-      
+
       showAlert(`${removed.user?.name || removed.name} removido`, 'info')
     }
   }
@@ -505,7 +513,7 @@ const debugDataStructure = () => {
   // ====================================
   // TIPOS DE PROPRIEDADE DISPONÍVEIS
   // ====================================
-  
+
   const availableOwnershipTypes = computed(() => {
     return typeOwners.value.map(type => {
       if (type.id === 1) { // Tipo "Proprietário"
@@ -526,46 +534,81 @@ const debugDataStructure = () => {
   // ====================================
   // MÉTODOS DE DOCUMENTOS
   // ====================================
-  
+
   const convertToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result)
+      reader.onload = () => {
+        try {
+          const result = reader.result
+          if (typeof result !== 'string') return reject(new Error('Leitura de arquivo inválida'))
+          // Garantir prefixo data: presente
+          const hasPrefix = result.startsWith('data:')
+          const output = hasPrefix ? result : `data:${file.type || 'application/octet-stream'};base64,${result}`
+          resolve(output)
+        } catch (e) {
+          reject(e)
+        }
+      }
       reader.onerror = reject
+      reader.readAsDataURL(file)
     })
   }
 
   const handleDocumentUpload = async (event) => {
     const file = event.target?.files?.[0]
-    if (!file) return
+
+    if (!file) {
+      // Limpa os dados se não há arquivo
+      newDocument.file = null
+      newDocument.file_name = ''
+      return
+    }
 
     const allowedTypes = [
       'application/pdf',
-      'application/msword', 
+      'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.google-earth.kml+xml',
       'application/vnd.google-earth.kmz'
     ]
+    const allowedExts = ['pdf', 'doc', 'docx', 'kml', 'kmz']
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
 
-    if (!allowedTypes.includes(file.type)) {
+    const isAllowed = allowedTypes.includes(file.type) || allowedExts.includes(ext)
+    if (!isAllowed) {
       showAlert('Tipo de arquivo não permitido', 'error')
       event.target.value = ''
+      newDocument.file = null
+      newDocument.file_name = ''
       return
     }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB
-      showAlert('Arquivo muito grande (máx: 10MB)', 'error')
+    if (file.size > 6 * 1024 * 1024) { // 6MB
+      showAlert('Arquivo muito grande (máx: 6MB)', 'error')
       event.target.value = ''
+      newDocument.file = null
+      newDocument.file_name = ''
       return
     }
 
     try {
-      newDocument.file = await convertToBase64(file)
+      console.log('🔄 Processando arquivo:', file.name)
+  const base64 = await convertToBase64(file)
+  newDocument.file = base64
       newDocument.file_name = file.name
+  // Log auxiliar para depurar estado
+  console.log('📦 Base64 prefix preview:', base64.substring(0, 30))
+      console.log('✅ Arquivo processado com sucesso:', file.name)
+      console.log('📦 newDocument atualizado:', {
+        file: base64.substring(0, 50) + '...',
+        file_name: file.name
+      })
     } catch (error) {
-      console.error('Erro ao processar arquivo:', error)
+      console.error('❌ Erro ao processar arquivo:', error)
       showAlert('Erro ao processar arquivo', 'error')
+      newDocument.file = null
+      newDocument.file_name = ''
     }
   }
 
@@ -581,7 +624,7 @@ const debugDataStructure = () => {
     }
 
     // Verifica duplicatas
-    const exists = documents.value.find(doc => 
+    const exists = documents.value.find(doc =>
       doc.name.toLowerCase() === documentData.name.toLowerCase()
     )
 
@@ -618,9 +661,15 @@ const debugDataStructure = () => {
   const removeDocument = (index) => {
     if (index >= 0 && index < documents.value.length) {
       const removed = documents.value[index]
+
+      // Se o documento tem ID (é existente no banco), adiciona à lista de exclusão
+      if (removed.id) {
+        documentsToDelete.value.push(removed.id)
+      }
+
       documents.value.splice(index, 1)
       form.documents = documents.value
-      
+
       showAlert(`Documento "${removed.name}" removido`, 'info')
     }
   }
@@ -628,7 +677,7 @@ const debugDataStructure = () => {
   // ====================================
   // MÉTODOS DE CIDADES
   // ====================================
-  
+
   const loadCities = async () => {
     if (allCities.value.length > 0) return // Já carregadas
 
@@ -637,14 +686,14 @@ const debugDataStructure = () => {
       const response = await axios.get(
         'https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome'
       )
-      
+
       allCities.value = response.data
         .filter(city => city.microrregiao?.mesorregiao?.UF)
         .map(city => ({
           id: city.id,
           nome: `${city.nome} / ${city.microrregiao.mesorregiao.UF.sigla}`
         }))
-      
+
       console.log('🏙️ Cidades carregadas:', allCities.value.length)
     } catch (error) {
       console.error('Erro ao carregar cidades:', error)
@@ -678,7 +727,7 @@ const debugDataStructure = () => {
   // ====================================
   // UPLOAD DE FOTO
   // ====================================
-  
+
   const handleFileChange = async (event) => {
     const file = event.target?.files?.[0]
     if (!file) {
@@ -727,7 +776,7 @@ const debugDataStructure = () => {
   // ====================================
   // SUBMISSÃO DO FORMULÁRIO
   // ====================================
-  
+
   const validateForm = () => {
     const errors = []
 
@@ -748,12 +797,12 @@ const debugDataStructure = () => {
     }
 
     // Validação específica para proprietários
-    const proprietarios = owners.value.filter(owner => 
+    const proprietarios = owners.value.filter(owner =>
       (owner.type_ownership?.id || owner.type_ownership_id) === 1
     )
 
     if (proprietarios.length > 0) {
-      const totalPercent = proprietarios.reduce((sum, owner) => 
+      const totalPercent = proprietarios.reduce((sum, owner) =>
         sum + parseFloat(owner.percentage || owner.percent || 0), 0
       )
 
@@ -784,32 +833,51 @@ const debugDataStructure = () => {
       observations: owner.observations || null
     }))
 
-    // Prepara dados dos documentos
-    const formattedDocuments = documents.value.map(doc => ({
-      name: doc.name,
-      date: doc.date,
-      show: doc.show,
-      file: doc.file,
-      file_name: doc.file_name
-    }))
+    // Prepara dados dos documentos - apenas documentos com file (novos documentos)
+    const formattedDocuments = documents.value
+      .filter(doc => doc.file && doc.file.trim() !== '') // Só inclui documentos com file preenchido
+      .map(doc => ({
+        name: doc.name,
+        date: doc.date,
+        show: doc.show,
+        file: doc.file,
+        file_name: doc.file_name
+      }))
 
     // Determina proprietário principal
     const mainOwner = formattedOwners.find(owner => owner.percentage === 100) || formattedOwners[0]
 
     // Atualiza formulário
     form.owners = formattedOwners
-    form.documents = formattedDocuments
     form.owner_id = mainOwner?.user_id || null
 
-    // ✅ CORREÇÃO PRINCIPAL: Para edição, só envia file_photo se foi alterada
+    // ✅ CORREÇÃO: Só inclui documents se houver documentos com file
+    if (formattedDocuments.length > 0) {
+      form.documents = formattedDocuments
+    } else {
+      // Remove documents do formulário para não enviar array vazio
+      delete form.documents
+    }
+
+    // ✅ CORREÇÃO PRINCIPAL: Para edição, só envia file_photo/documents se foram alterados
     if (isEditMode.value && form.file_photo === initialData?.file_photo) {
       // Remove file_photo do envio para manter a foto atual
       const formData = { ...form.data() }
       delete formData.file_photo
-      
-      console.log('📋 Dados preparados (mantendo foto atual)')
-      
-      // Submete sem file_photo usando transform
+
+      // Se não há novos documentos, também remove documents do envio
+      if (!formData.documents || formData.documents.length === 0) {
+        delete formData.documents
+      }
+
+      // ✅ ADICIONAR: Incluir documentos para deletar
+      if (documentsToDelete.value.length > 0) {
+        formData.documents_to_delete = documentsToDelete.value
+      }
+
+      console.log('📋 Dados preparados (mantendo foto atual e sem novos documentos)')
+
+      // Submete sem file_photo/documents desnecessários usando transform
       form.transform(() => formData)[propertyId ? 'put' : 'post'](
         propertyId ? `/property/${propertyId}` : '/property',
         {
@@ -829,30 +897,64 @@ const debugDataStructure = () => {
     } else {
       console.log('📋 Dados preparados com nova foto ou criação')
 
-      // Submete normalmente
-      const url = propertyId ? `/property/${propertyId}` : '/property'
-      const method = propertyId ? 'put' : 'post'
+      // Para submissão normal, também verificar se há documents vazios
+      if (!form.documents || form.documents.length === 0) {
+        const formData = { ...form.data() }
+        delete formData.documents
 
-      form[method](url, {
-        onSuccess: () => {
-          showAlert(
-            propertyId ? 'Propriedade atualizada!' : 'Propriedade criada!',
-            'success'
-          )
-        },
-        onError: (errors) => {
-          console.error('Erro na submissão:', errors)
-          const firstError = Object.values(errors)[0]
-          showAlert(firstError || 'Erro ao salvar propriedade', 'error')
+        // ✅ ADICIONAR: Incluir documentos para deletar
+        if (documentsToDelete.value.length > 0) {
+          formData.documents_to_delete = documentsToDelete.value
         }
-      })
+
+        // Submete usando transform para remover documents vazios
+        form.transform(() => formData)[propertyId ? 'put' : 'post'](
+          propertyId ? `/property/${propertyId}` : '/property',
+          {
+            onSuccess: () => {
+              showAlert(
+                propertyId ? 'Propriedade atualizada!' : 'Propriedade criada!',
+                'success'
+              )
+            },
+            onError: (errors) => {
+              console.error('Erro na submissão:', errors)
+              const firstError = Object.values(errors)[0]
+              showAlert(firstError || 'Erro ao salvar propriedade', 'error')
+            }
+          }
+        )
+      } else {
+        // ✅ ADICIONAR: Incluir documentos para deletar no formulário
+        if (documentsToDelete.value.length > 0) {
+          form.documents_to_delete = documentsToDelete.value
+        }
+
+        // Submete normalmente com documents
+        const url = propertyId ? `/property/${propertyId}` : '/property'
+        const method = propertyId ? 'put' : 'post'
+
+        form[method](url, {
+          onSuccess: () => {
+            showAlert(
+              propertyId ? 'Propriedade atualizada!' : 'Propriedade criada!',
+              'success'
+            )
+          },
+          onError: (errors) => {
+            console.error('Erro na submissão:', errors)
+            const firstError = Object.values(errors)[0]
+            showAlert(firstError || 'Erro ao salvar propriedade', 'error')
+          }
+        })
+      }
     }
   }
 
   // ====================================
   // UTILITÁRIOS
   // ====================================
-  
+
   const applyCpfCnpjMask = (value) => {
     if (!value) return ''
     const numbers = value.replace(/\D/g, '')
@@ -874,7 +976,7 @@ const debugDataStructure = () => {
   // ====================================
   // INICIALIZAÇÃO
   // ====================================
-  
+
   onMounted(() => {
     console.log('🔧 usePropertyForm montado')
 
@@ -882,16 +984,16 @@ const debugDataStructure = () => {
       form.file_photo = initialData.file_photo
       console.log('📸 Foto atual carregada para edição')
     }
-    
+
     // Disponibiliza dados globalmente
     window.typeOwners = typeOwners.value
     window.usersData = allUsers.value
-    
+
     // Carrega cidades
     loadCities()
 
     // Auto-seleciona usuário para perfil proprietário
-    if (currentUser.value?.profile_id === 1 && !selectedOwner.id && availableUsers.value.length === 1) {
+  if (currentUser.value?.profiles && currentUser.value.profiles.includes('proprietario') && !currentUser.value.profiles.includes('prestador') && !selectedOwner.id && availableUsers.value.length === 1) {
       console.log('🏠 Auto-selecionando proprietário')
       selectOwner(availableUsers.value[0])
     }
@@ -900,7 +1002,7 @@ const debugDataStructure = () => {
   // ====================================
   // WATCHERS
   // ====================================
-  
+
   watch(() => form.city, (newCity) => {
     if (newCity) filterCities(newCity)
   })
@@ -908,7 +1010,7 @@ const debugDataStructure = () => {
   // ====================================
   // RETORNO PÚBLICO
   // ====================================
-  
+
   return {
     // Estado principal
     form,
@@ -927,6 +1029,7 @@ const debugDataStructure = () => {
 
     // Documentos
     documents,
+    documentsToDelete,
     newDocument,
     docDate,
 

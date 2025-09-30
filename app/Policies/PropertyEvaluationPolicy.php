@@ -19,45 +19,24 @@ class PropertyEvaluationPolicy
      */
     private function canAccessProperty(Property $property, User $user)
     {
-        switch ($user->profile_id) {
-            case 1: // Proprietário puro
-                return PropertyUser::where('property_id', $property->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-            case 2: // Prestador de serviço
-                return DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('can_view_documents', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-            case 3: // Proprietário/Prestador
-                $isOwner = PropertyUser::where('property_id', $property->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-                if ($isOwner) return true;
-
-                return DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('can_view_documents', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-            default:
-                return false;
+        if ($user->hasProfile('proprietario')) {
+            return PropertyUser::where('property_id', $property->id)
+                ->where('user_id', $user->id)
+                ->exists();
         }
+        if ($user->hasProfile('prestador')) {
+            return DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('can_view_documents', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
+        }
+        return false;
     }
 
     /**
@@ -70,54 +49,30 @@ class PropertyEvaluationPolicy
             $user = User::with('activity')->find($user->id);
         }
 
-        switch ($user->profile_id) {
-            case 1: // Proprietário puro - NUNCA pode avaliar
-                return false;
-
-            case 2: // Prestador de serviço
-                $hasAuthorization = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('evaluation_permission', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-                return $hasAuthorization && 
-                       $user->activity && 
-                       (bool) $user->activity->evaluation_permission;
-
-            case 3: // Proprietário/Prestador
-                $isOwner = PropertyUser::where('property_id', $property->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-                if ($isOwner) {
-                    return $user->activity && (bool) $user->activity->evaluation_permission;
-                }
-
-                // Se não é proprietário, verifica como prestador
-                $hasAuthorization = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('evaluation_permission', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-                return $hasAuthorization && 
-                       $user->activity && 
-                       (bool) $user->activity->evaluation_permission;
-
-            default:
-                return false;
+        if ($user->hasProfile('proprietario')) {
+            $isOwner = PropertyUser::where('property_id', $property->id)
+                ->where('user_id', $user->id)
+                ->exists();
+            if ($isOwner) {
+                return $user->activity && (bool) $user->activity->evaluation_permission;
+            }
         }
+        if ($user->hasProfile('prestador')) {
+            $hasAuthorization = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('evaluation_permission', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
+            return $hasAuthorization &&
+                   $user->activity &&
+                   (bool) $user->activity->evaluation_permission;
+        }
+        return false;
     }
 
     public function before(User $user, $ability)
@@ -143,9 +98,9 @@ class PropertyEvaluationPolicy
 
     public function create(User $user)
     {
-        // Verificação genérica - permitir que prestadores possam criar
-        // A verificação específica da propriedade é feita no controller
-        return in_array($user->profile_id, [2, 3]); // Prestadores e Proprietário/Prestadores
+    // Permitir que prestadores possam criar
+    // A verificação específica da propriedade é feita no controller
+    return $user->hasProfile('prestador');
     }
 
     public function update(User $user, PropertyEvaluation $propertyEvaluation)
@@ -184,7 +139,7 @@ class PropertyEvaluationPolicy
         Log::info('PropertyEvaluationPolicy@evaluateProperty', [
             'user_id' => $user->id,
             'property_id' => $property->id,
-            'user_profile' => $user->profile_id
+            'user_profiles' => $user->profiles->pluck('slug')->toArray()
         ]);
 
         return $this->canCreateEvaluationForProperty($property, $user);

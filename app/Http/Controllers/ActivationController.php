@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Events\UserActivated;
 use Illuminate\Support\Facades\Auth;
 
 class ActivationController extends Controller
@@ -23,11 +24,14 @@ class ActivationController extends Controller
             'email_verified_at' => now(),
         ]);
 
+        // Dispara o evento de ativação do usuário
+        event(new UserActivated($user));
+
         Auth::login($user);
 
-        if($user->profile_id === 2) {
-            return redirect()->route('providers.index')->with('status', 'Login realizado com sucesso!');
-        } else {    
+    if($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
+            return redirect()->route('service-provider.index')->with('status', 'Login realizado com sucesso!');
+        } else {
             return redirect()->route('dashboard')->with('status', 'Login realizado com sucesso!');
         }
 
@@ -47,12 +51,15 @@ class ActivationController extends Controller
         // Atualiza o campo `is_active` para 1 (ativo)
         $user->update(['is_active' => 1, 'activation_token' => null]); // Limpa o token após o uso
 
+        // Dispara o evento de ativação do usuário
+        event(new UserActivated($user));
+
         // Realiza o login do usuário
         Auth::login($user);
 
-        if($user->profile_id === 2) {
-            return redirect()->route('providers.index')->with('status', 'Login realizado com sucesso!');
-        } else {    
+    if($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
+            return redirect()->route('service-provider.index')->with('status', 'Login realizado com sucesso!');
+        } else {
             return redirect()->route('dashboard')->with('status', 'Login realizado com sucesso!');
         }
         // Redireciona para o dashboard ou outra página protegida

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Teste KML</name>
+    <description>Arquivo KML de teste para validação</description>
+
+    <Placemark>
+      <name>Ponto Teste 1</name>
+      <description>Primeiro ponto de teste</description>
+      <Point>
+        <coordinates>-47.9292,-15.7801,0</coordinates>
+      </Point>
+    </Placemark>
+
+    <Placemark>
+      <name>Ponto Teste 2</name>
+      <description>Segundo ponto de teste</description>
+      <Point>
+        <coordinates>-47.9300,-15.7810,0</coordinates>
+      </Point>
+    </Placemark>
+
+    <Placemark>
+      <name>Polígono Teste</name>
+      <description>Área de teste</description>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              -47.9290,-15.7800,0
+              -47.9300,-15.7800,0
+              -47.9300,-15.7810,0
+              -47.9290,-15.7810,0
+              -47.9290,-15.7800,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>

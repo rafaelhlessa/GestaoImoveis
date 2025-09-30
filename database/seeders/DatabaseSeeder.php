@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Database\Seeders\TypeOwnershipSeeder;
 use Database\Seeders\ActivitySeeder;
+use Database\Seeders\ProfileSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -16,9 +17,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            TypeOwnershipSeeder::class, 
+            ProfileSeeder::class,
+            TypeOwnershipSeeder::class,
             ActivitySeeder::class,
         ]);
-
     }
 }

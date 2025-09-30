@@ -10,7 +10,7 @@ trait BelongsToProprietario
 {
     /**
      * Scope para filtrar registros do proprietário
-     * 
+     *
      * @param Builder $query
      * @param int|null $userId ID do usuário (opcional)
      * @return Builder
@@ -37,7 +37,7 @@ trait BelongsToProprietario
 
     /**
      * Scope para filtrar apenas por um usuário específico (sem autorizações)
-     * 
+     *
      * @param Builder $query
      * @param int $userId
      * @return Builder
@@ -49,7 +49,7 @@ trait BelongsToProprietario
 
     /**
      * Scope para filtrar propriedades com autorizações de prestadores
-     * 
+     *
      * @param Builder $query
      * @param int|null $serviceProviderId
      * @return Builder
@@ -72,7 +72,7 @@ trait BelongsToProprietario
     /**
      * Scope para propriedades que o usuário pode visualizar
      * (próprias + autorizadas)
-     * 
+     *
      * @param Builder $query
      * @param int|null $userId
      * @return Builder
@@ -91,14 +91,14 @@ trait BelongsToProprietario
         }
 
         // Se é proprietário (perfil 1 ou 3)
-        if (in_array($user->profile_id, [1, 3])) {
+    if ($user->hasProfile('proprietario')) {
             return $query->whereHas('owners', function ($q) use ($targetUserId) {
                 $q->where('user_id', $targetUserId);
             });
         }
 
         // Se é prestador de serviço (perfil 2)
-        if ($user->profile_id === 2) {
+    if ($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
             return $query->whereHas('owners.authorizations', function ($q) use ($targetUserId) {
                 $q->where('service_provider_id', $targetUserId)
                   ->where('can_view_documents', true);

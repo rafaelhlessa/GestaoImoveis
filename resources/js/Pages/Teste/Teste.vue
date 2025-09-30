@@ -67,7 +67,7 @@ const applyPhoneMask = (value) => {
                                                         <div class="flex-1 truncate">
                                                             <div class="flex items-center space-x-3">
                                                             <h3 class="truncate text-sm font-medium text-gray-900">{{ client.owner.name }}</h3>
-                                                            <span v-if="client.owner.profile_id === 1" class="inline-flex shrink-0 items-center rounded-full bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Proprietário</span>
+                                                            <span v-if="client.owner.profiles && client.owner.profiles.includes('proprietario') && !client.owner.profiles.includes('prestador')" class="inline-flex shrink-0 items-center rounded-full bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Proprietário</span>
                                                             </div>
                                                             <p class="mt-1 truncate text-sm text-gray-500">{{client.owner.city}}</p>
                                                         </div>
@@ -106,7 +106,7 @@ const applyPhoneMask = (value) => {
                                                     <h2 class="text-2xl font-semibold text-gray-900">Nenhum cliente encontrado</h2>
                                                     <p class="mt-2 text-sm text-gray-600">Não há clientes cadastrados.</p>
                                                 </div>
-                                            </div>    
+                                            </div>
                                         </div>
                                     </div>
                             </div>

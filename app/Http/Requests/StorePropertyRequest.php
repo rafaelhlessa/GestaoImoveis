@@ -10,18 +10,39 @@ use App\Helpers\UserAccessHelper;
 
 class StorePropertyRequest extends FormRequest
 {
+    private function estimateBase64Bytes(?string $dataUrl): int
+    {
+        if (!$dataUrl) return 0;
+        $clean = preg_replace('/^data:[^;]+;base64,/', '', (string) $dataUrl);
+        return (int) floor(strlen($clean) * 0.75);
+    }
+
+    protected function withValidator($validator)
+    {
+        $validator->after(function ($v) {
+            $docs = $this->input('documents', []);
+            if (!is_array($docs)) return;
+            foreach ($docs as $idx => $doc) {
+                if (!isset($doc['file'])) continue;
+                $bytes = $this->estimateBase64Bytes($doc['file']);
+                if ($bytes > 6 * 1024 * 1024) {
+                    $v->errors()->add("documents.$idx.file", 'Arquivo do documento excede 6MB.');
+                }
+            }
+        });
+    }
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
         $authUser = $this->user();
-            
+
         // Se não há usuário autenticado, nega acesso
         if (!$authUser) {
             return false;
         }
-        
+
         $ownerId = $this->input('owner_id') ?? $authUser->id;
         $owner = User::find($ownerId);
 
@@ -33,7 +54,7 @@ class StorePropertyRequest extends FormRequest
         if (class_exists(UserAccessHelper::class)) {
             return UserAccessHelper::canCreateForOwner($authUser, $owner);
         }
-        
+
         // Lógica básica de fallback
         return $this->canCreateForOwnerBasic($authUser, $owner);
 
@@ -43,17 +64,17 @@ class StorePropertyRequest extends FormRequest
     {
         // Se está criando para si mesmo
         if ($authUser->id === $owner->id) {
-            return in_array($authUser->profile_id, [1, 3]); // Proprietário ou Proprietário-Prestador
+            return $authUser->hasProfile('proprietario');
         }
-        
+
         // Se é prestador de serviço tentando criar para outro
-        if ($authUser->profile_id === 2) {
+        if ($authUser->hasProfile('prestador')) {
             return Authorization::where('service_provider_id', $authUser->id)
                 ->where('owner_id', $owner->id)
                 ->where('can_create_properties', true)
                 ->exists();
         }
-        
+
         return false;
     }
 
@@ -91,6 +112,11 @@ class StorePropertyRequest extends FormRequest
             'nickname' => 'nullable|string|max:100',
             'about' => 'nullable|string',
             'file_photo' => ['nullable', 'string'],
+            // Documentos (opcional no create)
+            'documents' => 'nullable|array',
+            'documents.*.name' => 'required_with:documents.*|string|max:255',
+            'documents.*.file' => 'required_with:documents.*|string',
+            'documents.*.file_name' => 'required_with:documents.*|string|max:255',
         ];
     }
 

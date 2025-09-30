@@ -16,13 +16,18 @@ class TypeOwnershipSeeder extends Seeder
         // Dados que serão inseridos na tabela type_ownerships
         $types = [
             ['name' => 'Proprietário'],
-            ['name' => 'Arrendatário'],
             ['name' => 'Comodato'],
-            ['name' => 'Parceria Agrícola'],
+            ['name' => 'Parceria Agricola'],
             ['name' => 'Aluguel'],
+            ['name' => 'Arrendamento'],
         ];
 
-        // Insere os registros na tabela
-        DB::table('type_ownership')->insert($types);
+        // Insere apenas se não existir ainda
+        foreach ($types as $type) {
+            DB::table('type_ownership')->updateOrInsert(
+                ['name' => $type['name']], // Condição de busca
+                $type // Dados para inserir/atualizar
+            );
+        }
     }
 }

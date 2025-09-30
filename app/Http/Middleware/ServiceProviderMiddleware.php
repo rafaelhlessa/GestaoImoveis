@@ -18,10 +18,11 @@ class ServiceProviderMiddleware
     {
         $user = Auth::user();
 
-        if ($user->profile_id === 1) {
+        // Redireciona se for proprietário puro
+        if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
             return redirect()->route('service-providers.index');
         }
-
+        // Redireciona para dashboard padrão
         return redirect()->route('dashboard');
     }
 }

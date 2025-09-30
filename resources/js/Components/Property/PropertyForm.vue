@@ -1,7 +1,7 @@
 <template>
   <AuthenticatedLayout>
     <Head :title="pageTitle" />
-    
+
     <template #header>
       <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
         {{ pageTitle }}
@@ -13,11 +13,11 @@
         <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800">
           <div class="p-6 text-gray-900 dark:text-gray-100">
             <div class="bg-white rounded-lg shadow p-8">
-              
+
               <!-- Formulário Principal -->
               <form @submit.prevent="handleSubmit">
                 <div class="space-y-12">
-                  
+
                   <!-- Seção Principal -->
                   <div class="border-b border-gray-900/10 pb-12">
                     <div class="flex justify-between items-start mb-6">
@@ -29,12 +29,12 @@
                           Preencha as informações da propriedade
                         </p>
                       </div>
-                      
+
                       <!-- Toggle Ativo/Inativo -->
                       <label class="inline-flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          v-model="form.is_active" 
+                        <input
+                          type="checkbox"
+                          v-model="form.is_active"
                           :checked="form.is_active === true"
                           @change="toggleActive"
                           class="sr-only peer"
@@ -55,7 +55,7 @@
                     />
 
                     <!-- Campos do Formulário -->
-                    <PropertyFormFields 
+                    <PropertyFormFields
                       :form="form"
                       :all-cities="allCities"
                       :filtered-cities="filteredCities"
@@ -69,13 +69,13 @@
                   <!-- ✅ SEÇÃO DE FOTO MELHORADA -->
                   <div class="border-b border-gray-900/10 pb-12">
                     <h3 class="text-lg font-medium text-gray-900 mb-6">Foto da Propriedade</h3>
-                    
+
                     <!-- Foto Atual (em modo de edição) -->
                     <div v-if="isEditMode && currentPhotoExists && !hasNewPhoto" class="mb-6">
                       <div class="flex items-start space-x-4">
                         <div class="relative">
-                          <img 
-                            :src="getCurrentPhotoUrl()" 
+                          <img
+                            :src="getCurrentPhotoUrl()"
                             alt="Foto atual da propriedade"
                             class="w-32 h-32 object-cover rounded-lg border-2 border-blue-300 shadow-sm"
                             @error="handleImageError"
@@ -104,8 +104,8 @@
                     <div v-if="hasNewPhoto && !photoError" class="mb-6">
                       <div class="flex items-start space-x-4">
                         <div class="relative">
-                          <img 
-                            :src="form.file_photo" 
+                          <img
+                            :src="form.file_photo"
                             alt="Nova foto selecionada"
                             class="w-32 h-32 object-cover rounded-lg border-2 border-green-300 shadow-sm"
                           />
@@ -137,7 +137,7 @@
                       <label for="document-photo" class="block text-sm font-medium text-gray-700">
                         {{ getPhotoUploadLabel() }}
                       </label>
-                      
+
                       <div class="flex items-center justify-center w-full">
                         <label for="document-photo" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-700 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500">
                           <div class="flex flex-col items-center justify-center pt-5 pb-6">
@@ -151,12 +151,12 @@
                               PNG, JPG, JPEG, GIF, WEBP (máx. 3MB)
                             </p>
                           </div>
-                          <input 
-                            id="document-photo" 
-                            type="file" 
-                            class="hidden" 
+                          <input
+                            id="document-photo"
+                            type="file"
+                            class="hidden"
                             ref="fileInput"
-                            @change="handlePhotoUpload" 
+                            @change="handlePhotoUpload"
                             accept="image/*"
                           />
                         </label>
@@ -165,7 +165,7 @@
 
                     <!-- Status da Foto -->
                     <div class="mt-4">
-                      <PhotoStatusIndicator 
+                      <PhotoStatusIndicator
                         :is-edit-mode="isEditMode"
                         :has-current-photo="currentPhotoExists"
                         :has-new-photo="hasNewPhoto"
@@ -200,14 +200,14 @@
 
                 <!-- Botões de Ação -->
                 <div class="mt-6 flex items-center justify-end gap-x-6">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     @click="goBack"
                     class="text-sm font-semibold text-gray-900 hover:text-gray-700"
                   >
                     Cancelar
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     :disabled="form.processing || !!photoError"
                     class="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50"
@@ -248,14 +248,14 @@
       :new-document="newDocument"
       :doc-date="docDate"
       @close="closeDocumentModal"
-      @submit="handleAddDocument"
+      @submit="(data) => { if (handleAddDocument(data) !== false) { closeDocumentModal() } }"
       @upload="handleDocumentUpload"
       @toggle-date="docDate = $event"
     />
 
     <!-- Sistema de Alertas -->
-    <div 
-      v-if="alert.show" 
+    <div
+      v-if="alert.show"
       :class="['fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg border transition-all duration-300', alertClass]"
     >
       <div class="flex items-start">
@@ -278,7 +278,7 @@
           <p class="text-sm font-medium">{{ alert.message }}</p>
         </div>
         <div class="ml-4 flex-shrink-0">
-          <button 
+          <button
             @click="alert.show = false"
             class="inline-flex text-sm hover:opacity-75"
           >
@@ -445,11 +445,11 @@ const hasNewPhoto = computed(() => {
 const getCurrentPhotoUrl = () => {
   const photo = props.property?.file_photo
   if (!photo) return null
-  
+
   if (photo.startsWith('data:image/')) {
     return photo
   }
-  
+
   return `/storage/${photo}`
 }
 
@@ -484,7 +484,7 @@ const handleRemoveCurrentPhoto = () => {
   removeCurrentPhoto() // Chama método da composable
   selectedPhoto.value = null
   photoError.value = ''
-  
+
   if (fileInput.value) {
     fileInput.value.value = ''
   }
@@ -497,7 +497,7 @@ const handleCancelNewPhoto = () => {
   cancelNewPhoto() // Chama método da composable
   selectedPhoto.value = null
   photoError.value = ''
-  
+
   if (fileInput.value) {
     fileInput.value.value = ''
   }
@@ -508,11 +508,11 @@ const handleCancelNewPhoto = () => {
  */
 const formatFileSize = (bytes) => {
   if (!bytes) return '0 Bytes'
-  
+
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
@@ -521,17 +521,17 @@ const formatFileSize = (bytes) => {
  */
 const handlePhotoUpload = (event) => {
   const file = event.target.files[0]
-  
+
   // Limpa estado anterior
   photoError.value = ''
   selectedPhoto.value = null
-  
+
   if (!file) {
     // Se não há arquivo, usa método da composable
     handleFileChange(event)
     return
   }
-  
+
   // Validações
   if (file.size > MAX_PHOTO_SIZE) {
     photoError.value = `Foto muito grande. Tamanho máximo: 3MB. Arquivo: ${formatFileSize(file.size)}`
@@ -539,18 +539,18 @@ const handlePhotoUpload = (event) => {
     showAlert(photoError.value, 'error', 5000)
     return
   }
-  
+
   if (!file.type.startsWith('image/')) {
     photoError.value = 'Selecione apenas arquivos de imagem (JPG, PNG, GIF, WEBP)'
     event.target.value = ''
     showAlert(photoError.value, 'error', 5000)
     return
   }
-  
+
   // Se passou na validação
   selectedPhoto.value = file
   handleFileChange(event) // Chama método da composable
-  
+
   showAlert(`Foto "${file.name}" selecionada com sucesso!`, 'success', 3000)
 }
 
@@ -602,7 +602,7 @@ const handleSubmit = () => {
     showAlert('Por favor, corrija os erros antes de continuar.', 'error')
     return
   }
-  
+
   const propertyId = props.property?.id
   submitForm(propertyId)
 }

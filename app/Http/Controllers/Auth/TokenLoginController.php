@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Events\UserActivated;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 
@@ -20,6 +21,9 @@ class TokenLoginController extends Controller
 
         // Atualiza o campo `is_active` para 1 (ativo)
         $user->update(['is_active' => 1, 'activation_token' => null]); // Limpa o token após o uso
+
+        // Dispara o evento de ativação do usuário
+        event(new UserActivated($user));
 
         // Realiza o login do usuário
         Auth::login($user);

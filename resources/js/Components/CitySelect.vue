@@ -3,7 +3,7 @@
   import axios from 'axios'
   import InputLabel from '@/Components/InputLabel.vue'
   import TextInput from '@/Components/TextInput.vue'
-  
+
   const props = defineProps({
     modelValue: String,
     modelValueId: {
@@ -16,15 +16,15 @@
     id: { type: String, default: 'city-select' }
   })
   const emits = defineEmits(['update:modelValue', 'update:modelValueId'])
-  
+
   const query = ref(props.modelValue || '')
   const showSuggestions = ref(false)
   const allCities = ref([])
   const filteredCities = ref([])
-  
+
   // ✅ Computed para gerar um ID único se necessário
   const inputId = computed(() => props.id || `city-select-${Math.random().toString(36).substr(2, 9)}`)
-  
+
   // Carrega lista de cidades na montagem
   onMounted(async () => {
     try {
@@ -36,7 +36,7 @@
       console.error('Erro carregando cidades', e)
     }
   })
-  
+
   // Filtra cidades com base na query
   const onInput = () => {
     const q = query.value.trim().toLowerCase()
@@ -55,7 +55,7 @@
       emits('update:modelValueId', null)
     }
   }
-  
+
   // Seleciona cidade e emite valores
   const selectCity = city => {
     query.value = city.nome
@@ -63,10 +63,10 @@
     emits('update:modelValueId', Number(city.id))
     showSuggestions.value = false
   }
-  
+
   const closeSuggestions = () => setTimeout(() => (showSuggestions.value = false), 200)
 </script>
-  
+
 <template>
     <div class="relative">
       <!-- ✅ Substitua idName por inputId -->
@@ -75,7 +75,7 @@
         :id="inputId"
         v-model="query"
         type="text"
-        class="mt-1 block w-full"
+        class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 text-sm py-3 px-4"
         :placeholder="placeholder"
         @input="onInput"
         @focus="showSuggestions = filteredCities.length > 0"
@@ -84,13 +84,13 @@
       />
       <ul
         v-if="showSuggestions"
-        class="absolute z-10 bg-white shadow mt-1 max-h-40 overflow-auto w-full rounded border border-gray-300"
+        class="absolute z-10 bg-white dark:bg-gray-800 shadow-lg mt-1 max-h-48 overflow-auto w-full rounded-lg border border-gray-300 dark:border-gray-600"
       >
         <li
           v-for="city in filteredCities"
           :key="city.id"
           @mousedown.prevent="selectCity(city)"
-          class="px-4 py-2 hover:bg-gray-200 cursor-pointer"
+          class="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100 border-b border-gray-100 dark:border-gray-600 last:border-b-0"
         >
           {{ city.nome }}
         </li>

@@ -14,64 +14,66 @@ class AuthorizationController extends Controller
 {
     public function index()
     {
-        if (Auth::user()->profile_id != 2) {
-            $authorizations = Authorization::where('owner_id', Auth::user()->id)
+        $user = Auth::user();
+        // Proprietário pode ver autorizações concedidas
+        if ($user->hasProfile('proprietario')) {
+            $authorizations = Authorization::where('owner_id', $user->id)
                 ->with(['serviceProvider', 'activity'])
                 ->get();
-            
             return Inertia::render('Authorizations/IndexAuthorization', [
                 'authorizations' => $authorizations
             ]);
-        } else {
-            return Inertia::render('Dashboard');
         }
+        // Prestador não tem acesso
+        return Inertia::render('Dashboard');
     }
 
     public function create()
     {
-        if (Auth::user()->profile_id != 2) {
-            $serviceProviders = User::where('profile_id', '>', 1)->get();
+        $user = Auth::user();
+        if ($user->hasProfile('proprietario')) {
+            // Buscar apenas usuários que tenham perfil prestador
+            $serviceProviders = User::whereHas('profiles', function($q) {
+                $q->where('slug', 'prestador');
+            })->get();
             return Inertia::render('Authorizations/CreateAuthorization', [
-                'serviceProviders' => $serviceProviders, 
-                'user' => Auth::user()
+                'serviceProviders' => $serviceProviders,
+                'user' => $user
             ]);
-        } else {
-            return Inertia::render('Dashboard');
         }
+        return Inertia::render('Dashboard');
     }
 
     public function store(Request $request)
     {
-        $existingProvider = Authorization::where('owner_id', Auth::user()->id)
+        $user = Auth::user();
+        $existingProvider = Authorization::where('owner_id', $user->id)
             ->where('service_provider_id', $request->service_provider_id)
             ->exists();
-
-        $serviceProviders = User::where('profile_id', 2)->get();
-        
-        if ($existingProvider === true) {
+        $serviceProviders = User::whereHas('profiles', function($q) {
+            $q->where('slug', 'prestador');
+        })->get();
+        if ($existingProvider) {
             return Inertia::render('Authorizations/CreateAuthorization', [
-                'serviceProviders' => $serviceProviders, 
-                'user' => Auth::user()
+                'serviceProviders' => $serviceProviders,
+                'user' => $user
             ])->with(['message' => 'Já existe uma autorização para este usuário.']);
-        } else {
-            $request->validate([
-                'service_provider_id' => 'required|exists:users,id',
-                'can_view_documents' => 'boolean',
-                'can_create_properties' => 'boolean',
-                'evaluation_permission' => 'boolean', // ✅ Nova validação
-            ]);
-
-            Authorization::create([
-                'owner_id' => Auth::user()->id,
-                'service_provider_id' => $request->service_provider_id,
-                'can_view_documents' => $request->can_view_documents,
-                'can_create_properties' => $request->can_create_properties,
-                'evaluation_permission' => $request->evaluation_permission, // ✅ Novo campo
-            ]);
-
-            return redirect()->route('authorizations.index')
-                ->with('message', 'Autorização criada com sucesso!');
         }
+        $request->validate([
+            'service_provider_id' => 'required|exists:users,id',
+            'can_view_documents' => 'boolean',
+            'can_create_properties' => 'boolean',
+            'evaluation_permission' => 'boolean',
+        ]);
+        Authorization::create([
+            'owner_id' => $user->id,
+            'service_provider_id' => $request->service_provider_id,
+            'can_view_documents' => $request->can_view_documents,
+            'can_create_properties' => $request->can_create_properties,
+            'evaluation_permission' => $request->evaluation_permission,
+        ]);
+        return redirect()->route('authorizations.index')
+            ->with('message', 'Autorização criada com sucesso!');
     }
 
     public function edit(Authorization $authorization)
@@ -82,7 +84,9 @@ class AuthorizationController extends Controller
 
         return Inertia::render('Authorizations/EditAuthorization', [
             'authorization' => $authorization,
-            'serviceProviders' => User::where('profile_id', 2)->get(),
+            'serviceProviders' => User::whereHas('profiles', function($q) {
+                $q->where('slug', 'prestador');
+            })->get(),
         ]);
     }
 
@@ -111,7 +115,7 @@ class AuthorizationController extends Controller
         Log::info('=== UPDATE AUTH CHANGE ===');
         Log::info('Auth ID:', ['id' => $authId]);
         Log::info('Request data:', $request->all());
-        
+
         $request->validate([
             'can_create_properties' => 'required|boolean',
             'can_view_documents' => 'required|boolean',
@@ -120,20 +124,20 @@ class AuthorizationController extends Controller
 
         try {
             $authorization = Authorization::findOrFail($authId);
-            
+
             // ✅ Log antes da atualização
             Log::info('Authorization antes da atualização:', [
                 'can_create_properties' => $authorization->can_create_properties,
                 'can_view_documents' => $authorization->can_view_documents,
                 'evaluation_permission' => $authorization->evaluation_permission,
             ]);
-            
+
             $authorization->update([
                 'can_create_properties' => $request->can_create_properties,
                 'can_view_documents' => $request->can_view_documents,
                 'evaluation_permission' => $request->evaluation_permission,
             ]);
-            
+
             // ✅ Log após a atualização
             $authorization->refresh();
             Log::info('Authorization após atualização:', [
@@ -143,19 +147,19 @@ class AuthorizationController extends Controller
             ]);
 
             return redirect()->back()->with('success', 'Autorização atualizada com sucesso.');
-            
+
         } catch (\Exception $e) {
             Log::error('Erro ao atualizar autorização:', [
                 'error' => $e->getMessage(),
                 'auth_id' => $authId,
                 'request_data' => $request->all()
             ]);
-            
+
             return redirect()->back()->with('error', 'Erro ao atualizar autorização: ' . $e->getMessage());
         }
     }
 
-    public function show($id) 
+    public function show($id)
     {
         //
     }

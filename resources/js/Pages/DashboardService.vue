@@ -62,9 +62,9 @@ const authUser = props.user;
 
 onMounted(() => {
     console.log('Perfil do usuário:', props.user);
-    
+
     // Para perfil 3, iniciar com visualização de proprietário
-    if (props.user.profile_id === 3) {
+    if (props.user.profiles && props.user.profiles.includes('proprietario') && props.user.profiles.includes('prestador')) {
         currentView.value = 'owner';
     }
 });
@@ -76,14 +76,14 @@ const switchView = (view) => {
 
 // Verificar se deve mostrar o seletor de visualização
 const shouldShowViewSelector = computed(() => {
-    return props.user.profile_id === 3;
+    return props.user.profiles && props.user.profiles.includes('proprietario') && props.user.profiles.includes('prestador');
 });
 
 // Determinar se deve mostrar gráficos baseado na visualização atual
 const shouldShowGraphs = computed(() => {
-    if (props.user.profile_id === 1) return true; // Perfil 1 sempre mostra
-    if (props.user.profile_id === 2) return false; // Perfil 2 nunca mostra
-    if (props.user.profile_id === 3) {
+    if (props.user.profiles && props.user.profiles.includes('proprietario') && !props.user.profiles.includes('prestador')) return true; // Proprietário puro
+    if (props.user.profiles && props.user.profiles.includes('prestador') && !props.user.profiles.includes('proprietario')) return false; // Prestador puro
+    if (props.user.profiles && props.user.profiles.includes('proprietario') && props.user.profiles.includes('prestador')) {
         return currentView.value === 'owner'; // Perfil 3 mostra apenas na visualização de proprietário
     }
     return false;
@@ -91,9 +91,9 @@ const shouldShowGraphs = computed(() => {
 
 // Determinar se deve mostrar lista de clientes baseado na visualização atual
 const shouldShowClients = computed(() => {
-    if (props.user.profile_id === 1) return false; // Perfil 1 nunca mostra
-    if (props.user.profile_id === 2) return true; // Perfil 2 sempre mostra
-    if (props.user.profile_id === 3) {
+    if (props.user.profiles && props.user.profiles.includes('proprietario') && !props.user.profiles.includes('prestador')) return false; // Proprietário puro
+    if (props.user.profiles && props.user.profiles.includes('prestador') && !props.user.profiles.includes('proprietario')) return true; // Prestador puro
+    if (props.user.profiles && props.user.profiles.includes('proprietario') && props.user.profiles.includes('prestador')) {
         return currentView.value === 'provider'; // Perfil 3 mostra apenas na visualização de prestador
     }
     return false;
@@ -102,7 +102,7 @@ const shouldShowClients = computed(() => {
 // Filtrar clientes para remover o próprio usuário da lista
 const filteredServiceProviders = computed(() => {
     if (!props.serviceProviders) return [];
-    
+
     return props.serviceProviders.filter(client => {
         // Remove o próprio usuário da lista de clientes
         return client.id !== props.user.id;
@@ -112,8 +112,8 @@ const filteredServiceProviders = computed(() => {
 // Verificar se há dados no gráfico
 const hasChartData = computed(() => {
     if (!props.valuationData || !shouldShowGraphs.value) return false;
-    return props.valuationData.urban.length > 0 || 
-           props.valuationData.commercial.length > 0 || 
+    return props.valuationData.urban.length > 0 ||
+           props.valuationData.commercial.length > 0 ||
            props.valuationData.rural.length > 0;
 });
 
@@ -125,21 +125,21 @@ const chartData = computed(() => {
             datasets: []
         };
     }
-    
+
     const allMonths = new Set();
-    
+
     // Coletar todos os meses únicos
     [...props.valuationData.urban, ...props.valuationData.commercial, ...props.valuationData.rural]
         .forEach(item => allMonths.add(item.month));
-    
+
     const sortedMonths = Array.from(allMonths).sort();
-    
+
     // Função para buscar valor por mês
     const getValueForMonth = (data, month) => {
         const item = data.find(d => d.month === month);
         return item ? item.value : null;
     };
-    
+
     return {
         labels: sortedMonths.map(month => {
             const [year, monthNum] = month.split('-');
@@ -196,7 +196,7 @@ const chartOptions = {
             callbacks: {
                 label: function(context) {
                     if (context.parsed.y === null) return null;
-                    return context.dataset.label + ': R$ ' + 
+                    return context.dataset.label + ': R$ ' +
                            new Intl.NumberFormat('pt-BR').format(context.parsed.y);
                 }
             }
@@ -233,7 +233,7 @@ const chartOptions = {
 // Estatísticas cards baseadas na visualização atual
 const statCards = computed(() => {
     const baseCards = [];
-    
+
     if (shouldShowGraphs.value) {
         // Visualização de proprietário
         baseCards.push(
@@ -255,7 +255,7 @@ const statCards = computed(() => {
             }
         );
     }
-    
+
     if (shouldShowClients.value) {
         // Visualização de prestador de serviços
         baseCards.push({
@@ -267,14 +267,14 @@ const statCards = computed(() => {
             icon: 'users'
         });
     }
-    
+
     return baseCards;
 });
 
 // Estatísticas por tipo de propriedade
 const propertyTypeStats = computed(() => {
     if (!props.stats || !props.stats.propertiesByType || !shouldShowGraphs.value) return [];
-    
+
     const types = props.stats.propertiesByType || {};
     return [
         { name: 'Urbanas', count: types.Urbanas || 0, color: 'bg-blue-500' },
@@ -287,7 +287,7 @@ const propertyTypeStats = computed(() => {
 const getIconComponent = (iconType) => {
     const icons = {
         users: '👥',
-        building: '🏠', 
+        building: '🏠',
         chart: '📊'
     };
     return icons[iconType] || '📄';
@@ -305,7 +305,7 @@ const statuses = {
 // Função para visualizar propriedades conforme perfil do usuário
 const navigateToProperties = () => {
     // Perfil 1 (proprietário) e perfil 3 (misto) acessam suas próprias propriedades
-    if (props.user.profile_id === 1 || props.user.profile_id === 3) {
+    if (props.user.profiles && (props.user.profiles.includes('proprietario'))) {
         router.get(route('property.index'));
     }
 };
@@ -313,7 +313,7 @@ const navigateToProperties = () => {
 // Função para visualizar propriedades do cliente (apenas para perfis 2 e 3)
 const viewClientProperties = (clientId) => {
     // Perfil 2 (prestador) e perfil 3 (misto) podem ver propriedades dos clientes
-    if (props.user.profile_id === 2 || props.user.profile_id === 3) {
+    if (props.user.profiles && props.user.profiles.includes('prestador')) {
         router.get(route('clients.property', { id: clientId }));
     } else {
         console.error('Acesso não permitido para este perfil');
@@ -340,11 +340,11 @@ const applyPhoneMask = (value) => {
 
 // Computed para o título da página baseado na visualização
 const pageTitle = computed(() => {
-    if (props.user.profile_id === 1) return 'Dashboard - Proprietário';
-    if (props.user.profile_id === 2) return 'Dashboard - Prestador de Serviços';
-    if (props.user.profile_id === 3) {
-        return currentView.value === 'owner' 
-            ? 'Dashboard - Proprietário' 
+    if (props.user.profiles && props.user.profiles.includes('proprietario') && !props.user.profiles.includes('prestador')) return 'Dashboard - Proprietário';
+    if (props.user.profiles && props.user.profiles.includes('prestador') && !props.user.profiles.includes('proprietario')) return 'Dashboard - Prestador de Serviços';
+    if (props.user.profiles && props.user.profiles.includes('proprietario') && props.user.profiles.includes('prestador')) {
+        return currentView.value === 'owner'
+            ? 'Dashboard - Proprietário'
             : 'Dashboard - Prestador de Serviços';
     }
     return 'Dashboard';
@@ -360,15 +360,15 @@ const pageTitle = computed(() => {
                 <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
                     {{ pageTitle }}
                 </h2>
-                
+
                 <!-- Seletor de Visualização para Perfil 3 -->
                 <div v-if="shouldShowViewSelector" class="flex bg-gray-100 rounded-lg p-1">
                     <button
                         @click="switchView('owner')"
                         :class="[
                             'flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                            currentView === 'owner' 
-                                ? 'bg-white text-gray-900 shadow-sm' 
+                            currentView === 'owner'
+                                ? 'bg-white text-gray-900 shadow-sm'
                                 : 'text-gray-500 hover:text-gray-700'
                         ]"
                     >
@@ -379,8 +379,8 @@ const pageTitle = computed(() => {
                         @click="switchView('provider')"
                         :class="[
                             'flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                            currentView === 'provider' 
-                                ? 'bg-white text-gray-900 shadow-sm' 
+                            currentView === 'provider'
+                                ? 'bg-white text-gray-900 shadow-sm'
                                 : 'text-gray-500 hover:text-gray-700'
                         ]"
                     >
@@ -393,11 +393,11 @@ const pageTitle = computed(() => {
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-8">
-                
+
                 <!-- Cards de Estatísticas -->
                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    <div 
-                        v-for="card in statCards" 
+                    <div
+                        v-for="card in statCards"
                         :key="card.id"
                         class="overflow-hidden rounded-lg bg-white px-4 py-5 shadow sm:p-6 hover:shadow-md transition-shadow"
                     >
@@ -414,9 +414,9 @@ const pageTitle = computed(() => {
                                 </p>
                             </div>
                             <div v-if="card.change" class="flex items-center">
-                                <span 
+                                <span
                                     :class="[
-                                        statuses[card.changeType], 
+                                        statuses[card.changeType],
                                         'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset'
                                     ]"
                                 >
@@ -438,24 +438,24 @@ const pageTitle = computed(() => {
                                 Últimos 12 meses
                             </div>
                         </div>
-                        
+
                         <div v-if="isLoading" class="flex justify-center items-center h-64">
                             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                         </div>
-                        
+
                         <div v-else-if="!hasChartData" class="flex flex-col items-center justify-center h-64 text-gray-500">
                             <svg class="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
                                 </path>
                             </svg>
                             <p class="text-lg font-medium">Nenhuma avaliação encontrada</p>
                             <p class="text-sm">Realize avaliações para visualizar os dados</p>
                         </div>
-                        
+
                         <div v-else class="h-64">
-                            <Line 
-                                :data="chartData" 
+                            <Line
+                                :data="chartData"
                                 :options="chartOptions"
                                 style="height: 100%; width: 100%"
                             />
@@ -463,8 +463,8 @@ const pageTitle = computed(() => {
 
                         <!-- Resumo por tipo de propriedade -->
                         <div v-if="hasChartData" class="mt-6 grid grid-cols-3 gap-4 text-sm">
-                            <div 
-                                v-for="type in propertyTypeStats" 
+                            <div
+                                v-for="type in propertyTypeStats"
                                 :key="type.name"
                                 class="text-center p-3 bg-gray-50 rounded-lg"
                             >
@@ -485,16 +485,16 @@ const pageTitle = computed(() => {
                         <h3 class="text-lg font-medium text-gray-900 mb-6">
                             Meus Clientes
                         </h3>
-                        
+
                         <div v-if="filteredServiceProviders.length === 0" class="text-center py-8 text-gray-500">
                             <UserIcon class="mx-auto h-12 w-12 text-gray-400 mb-4" />
                             <p class="text-lg font-medium">Nenhum cliente encontrado</p>
                             <p class="text-sm">Você ainda não possui clientes autorizados.</p>
                         </div>
-                        
+
                         <div v-else class="grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-2 xl:grid-cols-3">
-                            <div 
-                                v-for="client in filteredServiceProviders" 
+                            <div
+                                v-for="client in filteredServiceProviders"
                                 :key="client.id"
                                 class="overflow-hidden rounded-xl border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
                                 @click="viewClientProperties(client.id)"
@@ -514,7 +514,7 @@ const pageTitle = computed(() => {
                                             <span class="sr-only">Abrir opções</span>
                                             <EllipsisHorizontalIcon class="size-5" aria-hidden="true" />
                                         </MenuButton>
-                                        <transition 
+                                        <transition
                                             enter-active-class="transition ease-out duration-100"
                                             enter-from-class="transform opacity-0 scale-95"
                                             enter-to-class="transform opacity-100 scale-100"
@@ -548,7 +548,7 @@ const pageTitle = computed(() => {
                                         <dt class="text-gray-500">Tipo</dt>
                                         <dd class="flex items-start gap-x-2">
                                             <div class="font-medium text-gray-900">
-                                                {{ client.profile_id === 1 ? 'Proprietário' : 'Misto' }}
+                                                {{ client.profiles && client.profiles.includes('proprietario') && !client.profiles.includes('prestador') ? 'Proprietário' : 'Misto' }}
                                             </div>
                                         </dd>
                                     </div>

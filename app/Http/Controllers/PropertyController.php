@@ -16,11 +16,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 
 class PropertyController extends Controller
 {
-
     /**
      * Display a listing of the resource.
      */
@@ -29,28 +29,52 @@ class PropertyController extends Controller
         Gate::authorize('viewAny', Property::class);
 
         $user = Auth::user();
-        
-        // Perfis 1 e 3 podem acessar suas próprias propriedades
-        if (in_array($user->profile_id, [1, 3])) {
-            $properties = Property::whereHas('owners', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })->with(['owners.typeOwnership'])->get();
+
+        // Proprietários e prestadores podem acessar suas próprias propriedades
+        if ($user->hasProfile('proprietario') || $user->hasProfile('prestador')) {
+            $cacheKey = 'properties_user_' . $user->id;
+            $properties = \Cache::remember($cacheKey, 60, function () use ($user) {
+                return Property::select([
+                    'properties.id', 'properties.is_active', 'properties.title_deed', 'properties.title_deed_number',
+                    'properties.area', 'properties.unit', 'properties.type_property', 'properties.address',
+                    'properties.city', 'properties.district', 'properties.locality', 'properties.nickname',
+                    'properties.created_at', 'properties.updated_at'
+                ])->whereHas('owners', function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                })
+                ->with(['owners', 'owners.typeOwnership'])
+                ->paginate(20);
+            });
+
+            // Carregar imagens separadamente para evitar problemas de cache
+            foreach ($properties->items() as $property) {
+                $fullProperty = Property::select(['id', 'file_photo'])->find($property->id);
+                $property->file_photo = $fullProperty ? $fullProperty->file_photo : null;
+            }
+
+            // Debug: verificar se há propriedades null
+            \Log::info('Properties debug:', [
+                'user_id' => $user->id,
+                'properties_count' => $properties->count(),
+                'properties_items' => $properties->items(),
+                'has_null_items' => collect($properties->items())->contains(null)
+            ]);
 
             // Usar o componente correto para propriedades próprias
             return Inertia::render('Properties/IndexProperty', [
                 'properties' => $properties,
                 'can' => [
-                    'update' => $properties->pluck('id')->mapWithKeys(function ($id) {
+                    'update' => collect($properties->items())->pluck('id')->mapWithKeys(function ($id) {
                         $property = Property::find($id);
                         return [$id => Gate::allows('update', $property)];
                     }),
                 ],
             ]);
         } else {
-            // Perfil 2 não deve acessar esta rota
+            // Outros perfis não têm acesso
             return $this->returnUnauthorizedError(
-                'Prestadores de serviço devem acessar propriedades através da área de clientes.',
-                'service_provider'
+                'Você não tem permissão para acessar esta área.',
+                'access_denied'
             );
         }
     }
@@ -61,8 +85,8 @@ class PropertyController extends Controller
     public function create()
     {
         $currentUser = Auth::user();
-        
-        if (!in_array($currentUser->profile_id, [1, 2, 3])) {
+
+    if (!$currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador')) {
             return $this->returnUnauthorizedError(
                 'Você não tem permissão para criar propriedades.',
                 'general'
@@ -71,8 +95,8 @@ class PropertyController extends Controller
 
         $users = $this->getAvailableUsers($currentUser);
         $authorizations = $this->getUserAuthorizations($currentUser);
-        
-        
+
+
         return Inertia::render('Properties/CreateProperty', [
             'mode' => 'create',
             'typeOwners' => TypeOwnership::all()->map(function($type) {
@@ -94,15 +118,15 @@ class PropertyController extends Controller
     {
         $validated = $request->validated();
         $currentUser = Auth::user();
-        
+
         try {
             // ✅ CORREÇÃO: Proprietários (perfil 1) sempre podem adicionar a si mesmos
             if ($request->has('owners') && is_array($request->owners)) {
-                // Só valida permissões se NÃO for proprietário puro (perfil 1)
-                if ($currentUser->profile_id !== 1) {
+                // Só valida permissões se NÃO for proprietário puro
+                if (!$currentUser->hasProfile('proprietario')) {
                     $this->validateOwnerPermissions($currentUser, $request->owners);
                 }
-                
+
                 // Valida percentuais independente do perfil
                 $this->validateOwnershipPercentages($request->owners);
             }
@@ -114,7 +138,7 @@ class PropertyController extends Controller
             $validated['owner_id'] = $ownerId;
 
             DB::transaction(function () use ($validated, $request, &$propertyId, $currentUser) {
-                
+
                 $property = Property::create($validated);
 
                 // Inserindo Proprietários
@@ -133,7 +157,7 @@ class PropertyController extends Controller
                     })->toArray();
 
                     PropertyUser::insert($owners);
-                } else if ($currentUser->profile_id === 1) {
+                } else if ($currentUser->hasProfile('proprietario')) {
                     // ✅ Se é proprietário e não tem owners no request, adiciona automaticamente
                     PropertyUser::create([
                         'owner_id' => $currentUser->id,
@@ -147,20 +171,24 @@ class PropertyController extends Controller
 
                 // Inserindo Documentos
                 if ($request->has('documents') && is_array($request->documents)) {
-                    $documents = collect($request->documents)->map(function ($doc) use ($property) {
-                        return [
-                            'name' => $doc['name'],
-                            'date' => ($doc['date'] === "Sem Data" || empty($doc['date'])) ? null : $doc['date'],
-                            'show' => $doc['show'] ?? true,
-                            'file' => $this->cleanBase64($doc['file']),
-                            'file_name' => $doc['file_name'],
-                            'property_id' => $property->id,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    })->toArray();
+                    foreach ($request->documents as $doc) {
+                        try {
+                            if (($doc['file'] ?? null) === 'processing') { throw new \InvalidArgumentException('Arquivo ainda está processando no cliente.'); }
+                            $normalized = $this->normalizeFileForStorage($doc['file'] ?? null, $doc['file_name'] ?? 'arquivo');
+                            PropertyDocument::create([
+                                'name' => $doc['name'],
+                                'date' => ($doc['date'] === "Sem Data" || empty($doc['date'])) ? null : $doc['date'],
+                                'show' => $doc['show'] ?? true,
+                                'file' => $normalized, // Salvar Base64 normalizado
+                                'file_name' => $doc['file_name'],
+                                'property_id' => $property->id,
+                            ]);
 
-                    PropertyDocument::insert($documents);
+                        } catch (\Exception $e) {
+                            Log::error("Erro ao salvar documento: " . $e->getMessage());
+                            // Continua com os outros documentos mesmo se um falhar
+                        }
+                    }
                 }
 
                 $propertyId = $property->id;
@@ -168,7 +196,7 @@ class PropertyController extends Controller
 
             return redirect()->route('property.show', $propertyId)
                 ->with('success', 'Propriedade criada com sucesso.');
-                
+
         } catch (\Exception $e) {
             Log::error('Erro ao criar propriedade: ' . $e->getMessage());
             return redirect()->back()
@@ -187,13 +215,25 @@ class PropertyController extends Controller
         if ($user) {
             $user = \App\Models\User::with('activity')->find($user->id);
         }
-        
-        // Carrega a propriedade com todos os relacionamentos necessários
-        $property = Property::with([
-            'owners.typeOwnership', 
-            'documents', 
+
+        // Carrega a propriedade com todos os relacionamentos necessários, incluindo file_photo para exibição
+        $property = Property::select([
+            'properties.id', 'properties.is_active', 'properties.title_deed', 'properties.title_deed_number',
+            'properties.other', 'properties.area', 'properties.unit', 'properties.type_property',
+            'properties.address', 'properties.city', 'properties.city_id', 'properties.district',
+            'properties.locality', 'properties.nickname', 'properties.about', 'properties.created_at',
+            'properties.updated_at', 'properties.file_photo' // ✅ Incluído file_photo para exibição
+        ])->with([
+            'owners', 'owners.typeOwnership',
+            'documents' => function($query) {
+                $query->select(['id', 'property_id', 'name', 'file_name', 'date', 'show', 'created_at', 'updated_at']);
+                // Removido 'file' dos documentos para evitar dados binários grandes
+            },
             'evaluations' => function($query) {
-                $query->with('user')->orderBy('created_at', 'desc');
+                $query->select(['id', 'property_id', 'user_id', 'valuation', 'comments', 'created_at', 'updated_at'])
+                      ->with(['user'])
+                      ->orderBy('created_at', 'desc')
+                      ->limit(10); // Limita a 10 avaliações mais recentes
             }
         ])->find($property->id);
 
@@ -213,102 +253,55 @@ class PropertyController extends Controller
             ->where('user_id', $user->id)
             ->exists();
 
-        switch ($user->profile_id) {
-            case 1: // Proprietário puro
-                $hasAccess = $isOwnerOfProperty;
-                // ✅ CORREÇÃO: Proprietários sempre podem editar suas propriedades
-                $canEdit = $hasAccess;
-                $canEvaluate = false; // Proprietários puros NUNCA podem avaliar
-                break;
+        // Lógica baseada em perfis acumuláveis
+        if ($user->hasProfile('proprietario')) {
+            $hasAccess = $isOwnerOfProperty;
+            $canEdit = $hasAccess;
+            $canEvaluate = false;
+        } elseif ($user->hasProfile('prestador')) {
+            // Query para verificar acesso a documentos
+            $hasAccess = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('can_view_documents', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
 
-            case 2: // Prestador de serviço puro
-                // Query para verificar acesso a documentos
-                $hasAccess = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('can_view_documents', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
+            // Query para verificar permissão de criação/edição
+            $canEdit = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('can_create_properties', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
 
-                // Query para verificar permissão de criação/edição
-                $canEdit = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('can_create_properties', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
+            // Permissão de avaliação para prestadores de serviço
+            $hasAuthorizationToEvaluate = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('evaluation_permission', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
 
-                // Permissão de avaliação para prestadores de serviço
-                $hasAuthorizationToEvaluate = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('evaluation_permission', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-                // Prestador só pode avaliar se tem autorização E activity permite
-                $canEvaluate = $hasAuthorizationToEvaluate && 
-                            $user->activity && 
-                            (bool) $user->activity->evaluation_permission;
-                break;
-
-            case 3: // Proprietário/Prestador
-                $hasAccess = $isOwnerOfProperty;
-                // ✅ CORREÇÃO: Se é proprietário, sempre pode editar
-                $canEdit = $hasAccess;
-                
-                // Se é proprietário da propriedade
-                if ($hasAccess && $user->activity) {
-                    $canEvaluate = (bool) $user->activity->evaluation_permission;
-                } else {
-                    // Se não é proprietário, verifica se tem autorização como prestador
-                    $hasAuthorizationToEvaluate = DB::table('authorizations')
-                        ->where('service_provider_id', $user->id)
-                        ->where('evaluation_permission', 1)
-                        ->whereExists(function ($query) use ($property) {
-                            $query->select(DB::raw(1))
-                                ->from('property_user')
-                                ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                                ->where('property_user.property_id', $property->id);
-                        })
-                        ->exists();
-
-                    if ($hasAuthorizationToEvaluate) {
-                        $hasAccess = true; // Dar acesso se tiver autorização como prestador
-                        $canEvaluate = $user->activity && (bool) $user->activity->evaluation_permission;
-                        
-                        // ✅ CORREÇÃO: Também pode editar se tiver autorização como prestador
-                        $canEdit = DB::table('authorizations')
-                            ->where('service_provider_id', $user->id)
-                            ->where('can_create_properties', 1)
-                            ->whereExists(function ($query) use ($property) {
-                                $query->select(DB::raw(1))
-                                    ->from('property_user')
-                                    ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                                    ->where('property_user.property_id', $property->id);
-                            })
-                            ->exists();
-                    }
-                }
-                break;
-
-            default:
-                $hasAccess = false;
-                $canEdit = false;
-                $canEvaluate = false;
-                break;
+            $canEvaluate = $hasAuthorizationToEvaluate &&
+                        $user->activity &&
+                        (bool) $user->activity->evaluation_permission;
+        } else {
+            $hasAccess = false;
+            $canEdit = false;
+            $canEvaluate = false;
         }
 
         if (!$hasAccess) {
@@ -328,7 +321,7 @@ class PropertyController extends Controller
             'property_name' => $property->nickname,
             'user_id' => $user->id,
             'user_name' => $user->name,
-            'user_profile' => $user->profile_id,
+            'user_profile' => $user->profiles->pluck('slug')->toArray(),
             'is_owner_of_property' => $isOwnerOfProperty,
             'route_name' => request()->route()->getName(),
             'permissions_calculated' => [
@@ -345,7 +338,7 @@ class PropertyController extends Controller
             'evaluations' => $property->evaluations->toArray(),
             'typeOwnership' => $typeOwnership->toArray(),
             'success' => session('success'),
-            'isServiceProvider' => $user->profile_id === 2,
+            'isServiceProvider' => $user->hasProfile('prestador'),
             'canEdit' => $canEdit,
             'canEvaluate' => $canEvaluate,
             'canView' => $hasAccess,
@@ -411,10 +404,19 @@ class PropertyController extends Controller
                 'property_access'
             );
         }
-        
-        $property = Property::with([
-            'documents',
-            'owners.typeOwnership'
+
+        $property = Property::select([
+            'properties.id', 'properties.is_active', 'properties.title_deed', 'properties.title_deed_number',
+            'properties.other', 'properties.area', 'properties.unit', 'properties.type_property',
+            'properties.address', 'properties.city', 'properties.city_id', 'properties.district',
+            'properties.locality', 'properties.nickname', 'properties.about', 'properties.created_at',
+            'properties.updated_at', 'properties.file_photo' // ✅ Incluído file_photo para exibição no edit
+        ])->with([
+            'documents' => function($query) {
+                $query->select(['id', 'property_id', 'name', 'file_name', 'date', 'show', 'created_at', 'updated_at']);
+                // Removido 'file' dos documentos para evitar dados binários grandes
+            },
+            'owners', 'owners.typeOwnership'
         ])->findOrFail($property->id);
 
         // Carregando os owners com os dados do usuário manualmente
@@ -427,7 +429,7 @@ class PropertyController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'cpf_cnpj' => $user->cpf_cnpj,
-                    'profile_id' => $user->profile_id,
+                    'profiles' => $user->profiles->pluck('slug')->toArray(),
                 ] : null;
                 return $owner;
             });
@@ -447,7 +449,9 @@ class PropertyController extends Controller
             'authorizations' => $this->getUserAuthorizations($currentUser),
             'currentUser' => $this->formatUser($currentUser),
             'owners' => $ownersWithUsers,
-            'documents' => PropertyDocument::where('property_id', $property->id)->get(),
+            'documents' => PropertyDocument::select(['id', 'property_id', 'name', 'file_name', 'date', 'show', 'created_at', 'updated_at'])
+                                          ->where('property_id', $property->id)
+                                          ->get(),
         ]);
     }
 
@@ -459,27 +463,29 @@ class PropertyController extends Controller
         $property = Property::findOrFail($id);
         $currentUser = Auth::user();
 
-       if ($request->hasFile('file_photo') || $request->filled('file_photo')) {
-            $propertyData['file_photo'] = $request->file_photo;
-        }
-        
         try {
-            // ✅ CORREÇÃO PRINCIPAL: Só valida permissões se NÃO for proprietário puro (perfil 1)
+            // ✅ CORREÇÃO PRINCIPAL: Só valida permissões se NÃO for proprietário puro
             if ($request->has('owners') && is_array($request->owners)) {
-                if ($currentUser->profile_id !== 1) {
-                    Log::info('Validando permissões de proprietários para perfil não-1');
+                if (!$currentUser->hasProfile('proprietario') || $currentUser->hasProfile('prestador')) {
+                    Log::info('Validando permissões de proprietários para perfil não-proprietário');
                     $this->validateOwnerPermissions($currentUser, $request->owners);
                 } else {
-                    Log::info('Pulando validação de permissões - usuário é proprietário puro (perfil 1)');
+                    Log::info('Pulando validação de permissões - usuário é proprietário puro');
                 }
-                
+
                 // Valida percentuais independente do perfil
                 $this->validateOwnershipPercentages($request->owners);
             }
 
             DB::transaction(function () use ($request, $property) {
-                // Atualizar dados básicos da propriedade
+                // Atualizar dados básicos da propriedade (preservando foto se não enviada)
                 $propertyData = $request->except(['documents', 'owners']);
+
+                // ✅ CORREÇÃO: Só atualiza file_photo se foi enviada uma nova
+                if (!$request->has('file_photo') || empty($request->file_photo)) {
+                    unset($propertyData['file_photo']); // Remove do array para não sobrescrever
+                }
+
                 $property->update($propertyData);
 
                 // Atualizar proprietários
@@ -497,39 +503,58 @@ class PropertyController extends Controller
                     }
                 }
 
-                // Atualizar documentos
-                if ($request->has('documents') && is_array($request->documents)) {
-                    $existingDocuments = PropertyDocument::where('property_id', $property->id)
-                        ->pluck('id', 'file_name')->toArray();
-                    $requestDocuments = collect($request->documents)->keyBy('file_name');
-
-                    foreach ($existingDocuments as $fileName => $docId) {
-                        if (!$requestDocuments->has($fileName)) {
-                            PropertyDocument::where('id', $docId)->delete();
-                        }
-                    }
+                // ✅ CORREÇÃO: Atualizar documentos (APENAS ADICIONAR NOVOS)
+                if ($request->has('documents') && is_array($request->documents) && !empty($request->documents)) {
+                    Log::info('Adicionando novos documentos', ['count' => count($request->documents)]);
 
                     foreach ($request->documents as $document) {
-                        $base64File = $this->cleanBase64($document['file']);
+                        // Apenas processa documentos com file (novos documentos)
+                        if (isset($document['file']) && !empty($document['file'])) {
+                            try {
+                                // Verifica se já existe um documento com o mesmo nome
+                                $existingDoc = PropertyDocument::where('property_id', $property->id)
+                                    ->where('file_name', $document['file_name'])
+                                    ->first();
 
-                        if (isset($existingDocuments[$document['file_name']])) {
-                            PropertyDocument::where('id', $existingDocuments[$document['file_name']])
-                                ->update([
-                                    'name' => $document['name'],
-                                    'date' => ($document['date'] === "Sem Data" || empty($document['date'])) ? null : $document['date'],
-                                    'show' => $document['show'] ?? true,
-                                    'file' => $base64File,
-                                ]);
-                        } else {
-                            PropertyDocument::create([
-                                'name' => $document['name'],
-                                'date' => ($document['date'] === "Sem Data" || empty($document['date'])) ? null : $document['date'],
-                                'show' => $document['show'] ?? true,
-                                'file' => $base64File,
-                                'file_name' => $document['file_name'],
-                                'property_id' => $property->id,
-                            ]);
+                                if ($existingDoc) {
+                                    // Atualiza documento existente
+                                    $normalized = $this->normalizeFileForStorage($document['file'] ?? null, $document['file_name'] ?? 'arquivo');
+                                    $existingDoc->update([
+                                        'name' => $document['name'],
+                                        'date' => ($document['date'] === "Sem Data" || empty($document['date'])) ? null : $document['date'],
+                                        'show' => $document['show'] ?? true,
+                                        'file' => $normalized, // Atualiza com Base64 normalizado
+                                        'file_name' => $document['file_name'],
+                                    ]);
+                                    Log::info('Documento atualizado', ['file_name' => $document['file_name']]);
+                                } else {
+                                    // Cria novo documento
+                                    $normalized = $this->normalizeFileForStorage($document['file'] ?? null, $document['file_name'] ?? 'arquivo');
+                                    PropertyDocument::create([
+                                        'name' => $document['name'],
+                                        'date' => ($document['date'] === "Sem Data" || empty($document['date'])) ? null : $document['date'],
+                                        'show' => $document['show'] ?? true,
+                                        'file' => $normalized, // Salvar Base64 normalizado
+                                        'file_name' => $document['file_name'],
+                                        'property_id' => $property->id,
+                                    ]);
+                                    Log::info('Novo documento criado', ['file_name' => $document['file_name']]);
+                                }
+                            } catch (\Exception $e) {
+                                Log::error("Erro ao processar documento: " . $e->getMessage());
+                                // Continua com os outros documentos
+                            }
                         }
+                    }
+                }
+
+                // ✅ NOVA FUNCIONALIDADE: Exclusão explícita de documentos
+                if ($request->has('documents_to_delete') && is_array($request->documents_to_delete)) {
+                    foreach ($request->documents_to_delete as $documentId) {
+                        PropertyDocument::where('id', $documentId)
+                            ->where('property_id', $property->id)
+                            ->delete();
+                        Log::info('Documento excluído', ['document_id' => $documentId]);
                     }
                 }
             });
@@ -537,7 +562,7 @@ class PropertyController extends Controller
             Log::info('UPDATE realizado com sucesso');
             return redirect()->route('property.show', $id)
                 ->with('success', 'Propriedade atualizada com sucesso.');
-                
+
         } catch (\Exception $e) {
             Log::error('Erro ao atualizar propriedade: ' . $e->getMessage());
             return redirect()->back()
@@ -553,72 +578,74 @@ class PropertyController extends Controller
     {
         Log::info('=== canEditProperty - INÍCIO ===', [
             'user_id' => $user->id,
-            'user_profile' => $user->profile_id,
+            'user_profiles' => $user->profiles->pluck('slug')->toArray(),
             'property_id' => $property->id
         ]);
 
-        switch ($user->profile_id) {
-            case 1: // Proprietário
-                $isOwner = PropertyUser::where('property_id', $property->id)
+        if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
+            // Proprietário puro: verifica se é dono da propriedade
+            $isOwner = PropertyUser::where('property_id', $property->id)
+                ->where('user_id', $user->id)
+                ->exists();
+
+            Log::info('Proprietário puro - Verificação:', [
+                'is_owner' => $isOwner,
+                'sql_query' => PropertyUser::where('property_id', $property->id)
                     ->where('user_id', $user->id)
-                    ->exists();
-                
-                Log::info('Profile 1 - Verificação proprietário:', [
-                    'is_owner' => $isOwner,
-                    'sql_query' => PropertyUser::where('property_id', $property->id)
-                        ->where('user_id', $user->id)
-                        ->toSql(),
-                    'bindings' => [$property->id, $user->id]
-                ]);
-                
-                return $isOwner;
+                    ->toSql(),
+                'bindings' => [$property->id, $user->id]
+            ]);
 
-            case 2: // Prestador de serviço
-                $canEdit = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('can_create_properties', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-                Log::info('Profile 2 - Verificação prestador:', ['can_edit' => $canEdit]);
-                return $canEdit;
-
-            case 3: // Proprietário/Prestador
-                // Primeiro verifica se é proprietário
-                $isOwner = PropertyUser::where('property_id', $property->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-                Log::info('Profile 3 - Verificação proprietário:', ['is_owner' => $isOwner]);
-
-                if ($isOwner) {
-                    return true;
-                }
-
-                // Se não é proprietário, verifica como prestador
-                $canEditAsProvider = DB::table('authorizations')
-                    ->where('service_provider_id', $user->id)
-                    ->where('can_create_properties', 1)
-                    ->whereExists(function ($query) use ($property) {
-                        $query->select(DB::raw(1))
-                            ->from('property_user')
-                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                            ->where('property_user.property_id', $property->id);
-                    })
-                    ->exists();
-
-                Log::info('Profile 3 - Verificação prestador:', ['can_edit_as_provider' => $canEditAsProvider]);
-                return $canEditAsProvider;
-
-            default:
-                Log::warning('Profile desconhecido:', ['profile' => $user->profile_id]);
-                return false;
+            return $isOwner;
         }
+
+        if ($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
+            // Prestador puro: verifica autorização
+            $canEdit = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('can_create_properties', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
+
+            Log::info('Prestador puro - Verificação:', ['can_edit' => $canEdit]);
+            return $canEdit;
+        }
+
+        if ($user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
+            // Proprietário/Prestador: verifica primeiro se é proprietário
+            $isOwner = PropertyUser::where('property_id', $property->id)
+                ->where('user_id', $user->id)
+                ->exists();
+
+            Log::info('Proprietário/Prestador - Verificação proprietário:', ['is_owner' => $isOwner]);
+
+            if ($isOwner) {
+                return true;
+            }
+
+            // Se não é proprietário, verifica como prestador
+            $canEditAsProvider = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('can_create_properties', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
+
+            Log::info('Proprietário/Prestador - Verificação prestador:', ['can_edit_as_provider' => $canEditAsProvider]);
+            return $canEditAsProvider;
+        }
+
+        Log::warning('Perfis desconhecidos:', ['profiles' => $user->profiles->pluck('slug')->toArray()]);
+        return false;
     }
 
     /**
@@ -691,48 +718,37 @@ class PropertyController extends Controller
      */
     private function getAvailableUsers($currentUser)
     {
-        switch ($currentUser->profile_id) {
-            case 1: // Proprietário - apenas ele mesmo
-                return [
-                    $this->formatUser($currentUser)
-                ];
-
-            case 2: // Prestador de serviço - apenas autorizados
-                // Usando DB::table para evitar problemas com o modelo Authorization
-                $authorizedOwnerIds = DB::table('authorizations')
-                    ->where('service_provider_id', $currentUser->id)
-                    ->where('can_create_properties', 1)
-                    ->pluck('owner_id')
-                    ->toArray();
-
-                return User::whereIn('id', $authorizedOwnerIds)
-                    ->select('id', 'name', 'cpf_cnpj', 'profile_id')
-                    ->orderBy('name')
-                    ->get()
-                    ->map([$this, 'formatUser'])
-                    ->toArray();
-
-            case 3: // Proprietário/Prestador - ele mesmo + autorizados
-                $authorizedOwnerIds = DB::table('authorizations')
-                    ->where('service_provider_id', $currentUser->id)
-                    ->where('can_create_properties', 1)
-                    ->pluck('owner_id')
-                    ->toArray();
-
-                // Adiciona o próprio usuário
-                $authorizedOwnerIds[] = $currentUser->id;
-                $authorizedOwnerIds = array_unique($authorizedOwnerIds);
-
-                return User::whereIn('id', $authorizedOwnerIds)
-                    ->select('id', 'name', 'cpf_cnpj', 'profile_id')
-                    ->orderBy('name')
-                    ->get()
-                    ->map([$this, 'formatUser'])
-                    ->toArray();
-
-            default:
-                return [];
+        // Proprietário puro: só ele mesmo
+        if ($currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador')) {
+            return [ $this->formatUser($currentUser) ];
         }
+        // Prestador puro: apenas autorizados
+        if ($currentUser->hasProfile('prestador') && !$currentUser->hasProfile('proprietario')) {
+            $authorizedOwnerIds = DB::table('authorizations')
+                ->where('service_provider_id', $currentUser->id)
+                ->where('can_create_properties', 1)
+                ->pluck('owner_id')
+                ->toArray();
+            return User::whereIn('id', $authorizedOwnerIds)
+                ->get()
+                ->map([$this, 'formatUser'])
+                ->toArray();
+        }
+        // Proprietário/Prestador: ele mesmo + autorizados
+        if ($currentUser->hasProfile('proprietario') && $currentUser->hasProfile('prestador')) {
+            $authorizedOwnerIds = DB::table('authorizations')
+                ->where('service_provider_id', $currentUser->id)
+                ->where('can_create_properties', 1)
+                ->pluck('owner_id')
+                ->toArray();
+            $authorizedOwnerIds[] = $currentUser->id;
+            $authorizedOwnerIds = array_unique($authorizedOwnerIds);
+            return User::whereIn('id', $authorizedOwnerIds)
+                ->get()
+                ->map([$this, 'formatUser'])
+                ->toArray();
+        }
+        return [];
     }
 
     /**
@@ -740,7 +756,7 @@ class PropertyController extends Controller
      */
     private function getUserAuthorizations($currentUser)
     {
-        if (in_array($currentUser->profile_id, [2, 3])) {
+        if ($currentUser->hasProfile('prestador')) {
             // Usando query manual para evitar problemas com relacionamentos
             $authorizations = DB::table('authorizations')
                 ->join('users', 'users.id', '=', 'authorizations.owner_id')
@@ -787,12 +803,12 @@ class PropertyController extends Controller
         if (empty($owners)) return;
 
         Log::info('=== validateOwnerPermissions ===', [
-            'user_profile' => $currentUser->profile_id,
+            'user_profiles' => $currentUser->profiles->pluck('slug')->toArray(),
             'owners_count' => count($owners)
         ]);
 
-        // ✅ CORREÇÃO: Proprietário puro (perfil 1) só pode adicionar a si mesmo
-        if ($currentUser->profile_id === 1) {
+        // ✅ CORREÇÃO: Proprietário puro só pode adicionar a si mesmo
+        if ($currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador')) {
             foreach ($owners as $owner) {
                 $userId = $owner['user_id'] ?? $owner['id'];
                 if ($userId != $currentUser->id) {
@@ -808,7 +824,7 @@ class PropertyController extends Controller
             return;
         }
 
-        // Para perfis 2 e 3, verifica autorizações
+        // Para prestadores, verifica autorizações
         $availableUsers = collect($this->getAvailableUsers($currentUser));
         $availableUserIds = $availableUsers->pluck('id')->toArray();
 
@@ -842,12 +858,12 @@ class PropertyController extends Controller
             $typeId = $owner['type_ownership_id'] ?? $owner['type_ownership'];
             return $typeId == 1;
         });
-        
+
         if (!empty($proprietarios)) {
             $totalProprietarios = array_sum(array_map(function($owner) {
                 return floatval($owner['percentage'] ?? $owner['percent']);
             }, $proprietarios));
-            
+
             if (abs($totalProprietarios - 100) > 0.01) {
                 throw new \Exception(
                     "O percentual total dos proprietários deve ser 100%. Atual: {$totalProprietarios}%"
@@ -859,7 +875,7 @@ class PropertyController extends Controller
         $userIds = array_map(function($owner) {
             return $owner['user_id'] ?? $owner['id'];
         }, $owners);
-        
+
         if (count($userIds) !== count(array_unique($userIds))) {
             throw new \Exception("Não é possível adicionar o mesmo usuário como proprietário mais de uma vez.");
         }
@@ -878,7 +894,7 @@ class PropertyController extends Controller
         foreach ($owners as $owner) {
             $percentage = floatval($owner['percentage'] ?? $owner['percent']);
             $typeId = $owner['type_ownership_id'] ?? $owner['type_ownership'];
-            
+
             if ($typeId == 1 && $percentage == 100) {
                 return $owner['user_id'] ?? $owner['id'];
             }
@@ -909,7 +925,7 @@ class PropertyController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'cpf_cnpj' => $user->cpf_cnpj,
-            'profile_id' => $user->profile_id,
+            'profiles' => $user->profiles->pluck('slug')->toArray(),
         ];
     }
 
@@ -918,7 +934,72 @@ class PropertyController extends Controller
      */
     private function cleanBase64($base64Data)
     {
-        return preg_replace('/^data:application\/[a-zA-Z0-9.+-]+;base64,/', '', $base64Data);
+        // Remove qualquer prefixo data:*;base64,
+        return preg_replace('/^data:[^;]+;base64,/', '', (string) $base64Data);
+    }
+
+    /**
+     * Normaliza e valida o payload do arquivo para armazenamento em BLOB (Base64 limpo)
+     * - Aceita string com prefixo data: ou Base64 puro ou texto XML cru
+     * - Retorna Base64 dos bytes do arquivo
+     */
+    private function normalizeFileForStorage(?string $filePayload, string $fileName): string
+    {
+        if (!$filePayload) {
+            throw new \InvalidArgumentException('Arquivo não enviado.');
+        }
+
+        $clean = trim($this->cleanBase64($filePayload));
+
+        // Tenta Base64 estrito primeiro
+        $decodedStrict = base64_decode($clean, true);
+
+        if ($decodedStrict !== false) {
+            // Validação de tamanho (estimativa rápida sem decodificar novamente)
+            $estimatedBytes = (int) floor(strlen($clean) * 0.75);
+            if ($estimatedBytes > 6 * 1024 * 1024) {
+                throw new \InvalidArgumentException('Arquivo excede o limite de 6MB.');
+            }
+            // Já está em Base64 limpo: evita re-encode para poupar memória
+            $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            if ($ext === 'kml') {
+                // Validação leve: tenta olhar por <kml> nos primeiros bytes decodificados (até 2KB)
+                $sample = substr($decodedStrict, 0, 2048);
+                if (stripos($sample, '<kml') === false) {
+                    \Log::warning('KML salvo sem tag <kml> na amostra. Verifique a origem do arquivo.', ['file_name' => $fileName]);
+                }
+            }
+            return $clean;
+        } else {
+            // Se falhar no Base64 estrito, tentar detectar XML cru (string começando por < ou contendo <kml)
+            $text = ltrim($filePayload, "\xEF\xBB\xBF\x00\xFF\xFE\xFE\xFF"); // remove BOMs comuns
+            $looksLikeXml = str_starts_with(trim($text), '<') || stripos($text, '<kml') !== false;
+            if ($looksLikeXml) {
+                $decoded = $text; // tratar como texto cru; armazenar bytes como estão
+            } else {
+                // última tentativa: Base64 não estrito
+                $decoded = base64_decode($clean, false);
+                if ($decoded === false) {
+                    throw new \InvalidArgumentException('Conteúdo do arquivo inválido: não é Base64 nem XML.');
+                }
+            }
+            // Se for KML, validar presença da tag <kml (não falhar para KMZ)
+            $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            if ($ext === 'kml') {
+                $sample = is_string($decoded) ? substr($decoded, 0, 2048) : '';
+                if ($sample && stripos($sample, '<kml') === false) {
+                    \Log::warning('KML salvo sem tag <kml> (modo texto/base64 flexível).', ['file_name' => $fileName]);
+                }
+            }
+
+            // Retorna Base64 normalizado
+            $encoded = base64_encode($decoded);
+            $estimatedBytes = (int) floor(strlen($encoded) * 0.75);
+            if ($estimatedBytes > 6 * 1024 * 1024) {
+                throw new \InvalidArgumentException('Arquivo excede o limite de 6MB.');
+            }
+            return $encoded;
+        }
     }
 
     // ====================================
@@ -929,22 +1010,14 @@ class PropertyController extends Controller
     private function returnUnauthorizedError($message = null, $type = 'general')
     {
         $user = Auth::user();
-        
         // Determina o tipo de erro baseado no contexto
         if ($type === 'general' && $user) {
-            switch ($user->profile_id) {
-                case 1:
-                    $type = 'property_access';
-                    break;
-                case 2:
-                    $type = 'service_provider';
-                    break;
-                case 3:
-                    $type = 'property_access';
-                    break;
+            if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
+                $type = 'property_access';
+            } elseif ($user->hasProfile('prestador')) {
+                $type = 'service_provider';
             }
         }
-
         // Mensagem padrão se não fornecida
         if (!$message) {
             switch ($type) {
@@ -961,12 +1034,11 @@ class PropertyController extends Controller
                     $message = 'Você não tem permissão para acessar esta página. Verifique suas credenciais e tente novamente.';
             }
         }
-
         return Inertia::render('Error/Unauthorized', [
             'message' => $message,
             'type' => $type,
             'redirectTo' => '/dashboard',
-            'userProfile' => $user ? $user->profile_id : null,
+            'userProfiles' => $user ? $user->profiles->pluck('slug')->toArray() : [],
         ]);
     }
 
@@ -1011,7 +1083,7 @@ class PropertyController extends Controller
     public function clientShow(string $id)
     {
         $user = Auth::user();
-        
+
         // Pegue apenas UMA propriedade específica
         $property = Property::whereHas('owners', function ($query) use ($id) {
             $query->where('user_id', $id);
@@ -1029,7 +1101,7 @@ class PropertyController extends Controller
         $canView = false;
         $canCreate = false;
 
-        if ($user->profile_id === 1) {
+        if ($user->hasProfile('proprietario')) {
             $canView = PropertyUser::where('user_id', $id)
                 ->where('property_id', $property->id)
                 ->exists();
@@ -1045,7 +1117,7 @@ class PropertyController extends Controller
                 })
                 ->exists();
 
-            $canCreate = $user->profile_id > 1 &&
+            $canCreate = $user->hasProfile('prestador') &&
                 DB::table('authorizations')
                 ->where('service_provider_id', $user->id)
                 ->where('can_create_properties', 1)
@@ -1070,7 +1142,7 @@ class PropertyController extends Controller
             'documents' => $property->documents,  // CORREÇÃO: Remover flatMap
             'owners' => $property->owners,        // CORREÇÃO: Remover flatMap
             'success' => session('success'),
-            'isServiceProvider' => $user->profile_id === 2,
+            'isServiceProvider' => $user->hasProfile('prestador') && !$user->hasProfile('proprietario'),
             'typeOwnership' => $typeOwnership,
             'canView' => $canView,
             'canCreate' => $canCreate,
@@ -1083,13 +1155,6 @@ class PropertyController extends Controller
         $property = Property::find($document->property_id);
         $user = Auth::user();
 
-        if (!$document || !$document->file) {
-            return $this->returnUnauthorizedError(
-                'Documento não encontrado.',
-                'document_access'
-            );
-        }
-
         // ✅ Verificar permissões de acesso ao documento
         if (!$property || !$this->checkDocumentAccess($user, $property, $document)) {
             return $this->returnUnauthorizedError(
@@ -1098,16 +1163,27 @@ class PropertyController extends Controller
             );
         }
 
-        $fileData = base64_decode($document->file);
-        $mimeType = 'application/octet-stream';
-
-        if (str_ends_with(strtolower($document->file_name), '.pdf')) {
-            $mimeType = 'application/pdf';
-        } elseif (str_ends_with(strtolower($document->file_name), '.kml')) {
-            $mimeType = 'application/vnd.google-earth.kml+xml';
+        // Verificar se o documento existe no BLOB
+        if (!$document->file) {
+            return $this->returnUnauthorizedError(
+                'Arquivo do documento não encontrado.',
+                'document_access'
+            );
         }
 
-        return Response::make($fileData, 200, [
+        // Decodificar Base64
+        $fileContent = base64_decode($document->file);
+        if ($fileContent === false) {
+            return $this->returnUnauthorizedError(
+                'Erro ao processar arquivo do documento.',
+                'document_access'
+            );
+        }
+
+        // Determinar MIME type baseado na extensão
+        $mimeType = $document->getMimeType();
+
+        return Response::make($fileContent, 200, [
             'Content-Type' => $mimeType,
             'Content-Disposition' => 'inline; filename="' . $document->file_name . '"'
         ]);
@@ -1117,8 +1193,8 @@ class PropertyController extends Controller
     {
         $user = Auth::user();
 
-        // Apenas perfis 2 e 3 podem acessar propriedades de clientes
-        if (!in_array($user->profile_id, [2, 3])) {
+        // Apenas prestadores de serviço podem acessar propriedades de clientes
+        if (!$user->hasProfile('prestador')) {
             return $this->returnUnauthorizedError(
                 'Apenas prestadores de serviço podem acessar propriedades de clientes.',
                 'service_provider'
@@ -1126,7 +1202,7 @@ class PropertyController extends Controller
         }
 
          $owner = User::findOrFail($id);
-        
+
         // Verificar autorizações usando DB::table
         $authorizations = DB::table('authorizations')
             ->where('service_provider_id', $user->id)
@@ -1174,22 +1250,25 @@ class PropertyController extends Controller
         if (!$document->show) {
             return $this->isOwnerOfProperty($user, $property);
         }
-        
+
         // Verificar baseado no perfil do usuário
-        switch ($user->profile_id) {
-            case 1: // Proprietário
-                return $this->isOwnerOfProperty($user, $property);
-                
-            case 2: // Prestador de serviço
-                return $this->hasServiceProviderAccess($user, $property);
-                
-            case 3: // Proprietário/Prestador
-                return $this->isOwnerOfProperty($user, $property) || 
-                    $this->hasServiceProviderAccess($user, $property);
-                
-            default:
-                return false;
+        if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
+            // Proprietário puro
+            return $this->isOwnerOfProperty($user, $property);
         }
+
+        if ($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
+            // Prestador puro
+            return $this->hasServiceProviderAccess($user, $property);
+        }
+
+        if ($user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
+            // Proprietário/Prestador: verifica ambos
+            return $this->isOwnerOfProperty($user, $property) ||
+                    $this->hasServiceProviderAccess($user, $property);
+        }
+
+        return false;
     }
 
     /**
@@ -1225,7 +1304,7 @@ class PropertyController extends Controller
     private function getMimeType($fileName)
     {
         $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        
+
         $mimeTypes = [
             'kml' => 'application/vnd.google-earth.kml+xml',
             'kmz' => 'application/vnd.google-earth.kmz',
@@ -1239,7 +1318,7 @@ class PropertyController extends Controller
             'txt' => 'text/plain',
             'xml' => 'application/xml',
         ];
-        
+
         return $mimeTypes[$extension] ?? 'application/octet-stream';
     }
 
@@ -1258,36 +1337,74 @@ class PropertyController extends Controller
     public function serveKml($id)
     {
         try {
+            Log::info("📋 Servindo KML para documento ID: {$id}");
+
             $document = PropertyDocument::findOrFail($id);
-            
+            Log::info("📄 Documento encontrado:", [
+                'id' => $document->id,
+                'name' => $document->name,
+                'file_name' => $document->file_name,
+                'property_id' => $document->property_id,
+                'file_path' => $document->file_path,
+                'mime_type' => $document->mime_type
+            ]);
+
             // Verificar se é arquivo KML
             if (!$this->isKmlFile($document->file_name)) {
-                return $this->returnUnauthorizedError(
-                    'Este endpoint é apenas para arquivos KML.',
-                    'document_access'
-                );
+                Log::warning("❌ Arquivo não é KML: {$document->file_name}");
+                return response('Este endpoint é apenas para arquivos KML.', 400, [
+                    'Content-Type' => 'text/plain'
+                ]);
             }
-            
+
+            Log::info("✅ Arquivo é KML válido: {$document->file_name}");
+
             // Verificar autorização
             $user = Auth::user();
             $property = Property::find($document->property_id);
-            
-            if (!$property || !$this->checkDocumentAccess($user, $property, $document)) {
-                return $this->returnUnauthorizedError(
-                    'Você não tem permissão para acessar este arquivo KML.',
-                    'document_access'
-                );
+
+            if (!$user || !$property || !$this->checkDocumentAccess($user, $property, $document)) {
+                Log::warning("❌ Acesso negado ao KML", [
+                    'user_id' => $user ? $user->id : 'não autenticado',
+                    'property_id' => $property ? $property->id : 'não encontrada',
+                    'document_id' => $document->id
+                ]);
+                return response('Você não tem permissão para acessar este arquivo KML.', 403, [
+                    'Content-Type' => 'text/plain'
+                ]);
             }
-            
+
+            Log::info("✅ Acesso autorizado ao KML");
+
+            // Verificar se o documento tem arquivo BLOB
+            if (!$document->file) {
+                Log::error("❌ Arquivo KML não encontrado no banco");
+                return response('Arquivo KML não encontrado.', 404, [
+                    'Content-Type' => 'text/plain'
+                ]);
+            }
+
+            // Decodificar Base64
             $fileData = base64_decode($document->file);
-            
             if ($fileData === false) {
-                return $this->returnUnauthorizedError(
-                    'Erro ao processar arquivo KML.',
-                    'document_access'
-                );
+                Log::error("❌ Erro ao decodificar Base64 do arquivo KML");
+                return response('Erro ao processar arquivo KML.', 500, [
+                    'Content-Type' => 'text/plain'
+                ]);
             }
-            
+
+            Log::info("✅ Arquivo KML decodificado do Base64", [
+                'decoded_size' => strlen($fileData),
+                'content_preview' => substr($fileData, 0, 200)
+            ]);
+
+            if (!$fileData) {
+                Log::error("❌ Arquivo KML não encontrado nem no storage nem em Base64");
+                return response('Arquivo KML não encontrado.', 404, [
+                    'Content-Type' => 'text/plain'
+                ]);
+            }
+
             // Headers específicos para KML com CORS
             return Response::make($fileData, 200, [
                 'Content-Type' => 'application/vnd.google-earth.kml+xml',
@@ -1299,17 +1416,16 @@ class PropertyController extends Controller
                 'Cache-Control' => 'public, max-age=3600',
                 'X-Content-Type-Options' => 'nosniff',
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error("Erro ao servir KML ID: {$id}", [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
-            return $this->returnUnauthorizedError(
-                'Erro ao carregar arquivo KML.',
-                'document_access'
-            );
+
+            return response('Erro ao carregar arquivo KML.', 500, [
+                'Content-Type' => 'text/plain'
+            ]);
         }
     }
 
