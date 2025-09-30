@@ -19,7 +19,7 @@ return new class extends Migration
         Schema::table('property_documents', function (Blueprint $table) {
             // Tornar a coluna 'file' obrigatória novamente
             $table->longText('file')->nullable(false)->change();
-            
+
             // Remover colunas do sistema de arquivos
             $table->dropColumn(['file_path', 'mime_type', 'file_size']);
         });
@@ -52,13 +52,13 @@ return new class extends Migration
                 try {
                     $fileContent = Storage::get($document->file_path);
                     $base64Content = base64_encode($fileContent);
-                    
+
                     $document->file = $base64Content;
                     $document->save();
-                    
+
                     // Remover arquivo do storage
                     Storage::delete($document->file_path);
-                    
+
                     echo "Migrado documento ID {$document->id} de volta para BLOB\n";
                 } catch (\Exception $e) {
                     echo "Erro ao migrar documento ID {$document->id}: " . $e->getMessage() . "\n";

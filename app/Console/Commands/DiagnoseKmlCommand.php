@@ -48,10 +48,10 @@ class DiagnoseKmlCommand extends Command
         $this->line("Nome: {$document->file_name}");
         $this->line("MIME Type: {$document->mime_type}");
         $this->line("Tamanho: " . number_format($document->file_size / 1024, 2) . " KB");
-        
+
         if ($document->file_path && Storage::exists($document->file_path)) {
             $this->line("✅ Arquivo existe no storage: {$document->file_path}");
-            
+
             try {
                 $content = Storage::get($document->file_path);
                 $this->analyzeKmlContent($content);
@@ -60,7 +60,7 @@ class DiagnoseKmlCommand extends Command
             }
         } elseif ($document->content) {
             $this->line("📁 Arquivo em Base64 no banco de dados");
-            
+
             try {
                 $content = base64_decode($document->content);
                 $this->analyzeKmlContent($content);
@@ -77,7 +77,7 @@ class DiagnoseKmlCommand extends Command
         // Verificar se é XML válido
         libxml_use_internal_errors(true);
         $xml = simplexml_load_string($content);
-        
+
         if ($xml === false) {
             $errors = libxml_get_errors();
             $this->error("❌ XML inválido:");
@@ -94,7 +94,7 @@ class DiagnoseKmlCommand extends Command
         $namespaces = $xml->getNamespaces(true);
         $hasKmlNamespace = false;
         foreach ($namespaces as $prefix => $namespace) {
-            if (strpos($namespace, 'earth.google.com') !== false || 
+            if (strpos($namespace, 'earth.google.com') !== false ||
                 strpos($namespace, 'opengis.net/kml') !== false) {
                 $hasKmlNamespace = true;
                 $this->info("✅ Namespace KML encontrado: {$namespace}");
@@ -108,7 +108,7 @@ class DiagnoseKmlCommand extends Command
 
         // Registrar namespace para consultas XPath
         $xml->registerXPathNamespace('kml', 'http://www.opengis.net/kml/2.2');
-        
+
         // Buscar elementos geográficos
         $placemarks = $xml->xpath('//kml:Placemark | //Placemark');
         $points = $xml->xpath('//kml:Point | //Point');
@@ -145,10 +145,10 @@ class DiagnoseKmlCommand extends Command
                     if (count($parts) >= 2) {
                         $lon = floatval($parts[0]);
                         $lat = floatval($parts[1]);
-                        
+
                         if ($lat >= -90 && $lat <= 90 && $lon >= -180 && $lon <= 180) {
                             $validCoords++;
-                            
+
                             if ($latMin === null || $lat < $latMin) $latMin = $lat;
                             if ($latMax === null || $lat > $latMax) $latMax = $lat;
                             if ($lonMin === null || $lon < $lonMin) $lonMin = $lon;
@@ -174,7 +174,7 @@ class DiagnoseKmlCommand extends Command
         // Verificar tamanho do conteúdo
         $size = strlen($content);
         $this->line("📏 Tamanho do conteúdo: " . number_format($size / 1024, 2) . " KB");
-        
+
         if ($size > 1024 * 1024) { // > 1MB
             $this->warn("⚠️  Arquivo muito grande (> 1MB), pode causar problemas de performance");
         }

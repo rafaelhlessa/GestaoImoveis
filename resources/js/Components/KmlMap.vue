@@ -82,7 +82,7 @@ const loadKml = (url) => {
 
         e.target.eachLayer((layer) => {
           featureCount++;
-          
+
           if (layer.getLatLng) {
             const latLng = layer.getLatLng();
             allCoordinates.push(latLng);
@@ -117,7 +117,7 @@ const loadKml = (url) => {
           console.log("🔧 Criando bounds manualmente");
           const group = new L.featureGroup(e.target.getLayers());
           const groupBounds = group.getBounds();
-          
+
           if (groupBounds.isValid()) {
             map.value.fitBounds(groupBounds, {
               padding: [20, 20],
@@ -153,8 +153,8 @@ watch(() => props.kmlUrl, (newUrl) => {
 </script>
 
 <template>
-  <div 
-    ref="mapElement" 
+  <div
+    ref="mapElement"
     class="w-full"
     :style="{ height: height }"
   ></div>

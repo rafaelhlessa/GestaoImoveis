@@ -58,7 +58,7 @@ class PropertyDocument extends Model
     public function getMimeType()
     {
         $extension = strtolower(pathinfo($this->file_name, PATHINFO_EXTENSION));
-        
+
         $mimeTypes = [
             'pdf' => 'application/pdf',
             'doc' => 'application/msword',
