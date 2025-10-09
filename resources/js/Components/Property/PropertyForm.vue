@@ -31,19 +31,17 @@
                       </div>
 
                       <!-- Toggle Ativo/Inativo -->
-                      <label class="inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          v-model="form.is_active"
-                          :checked="form.is_active === true"
-                          @change="toggleActive"
-                          class="sr-only peer"
-                        >
-                        <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        <span class="ms-3 text-sm font-medium text-gray-900">
-                          {{ form.is_active ? "Propriedade Ativa" : "Propriedade Inativa" }}
-                        </span>
-                      </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            v-model="form.is_active"
+                            class="sr-only peer"
+                          >
+                          <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          <span class="ms-3 text-sm font-medium text-gray-900">
+                            {{ form.is_active ? "Propriedade Ativa" : "Propriedade Inativa" }}
+                          </span>
+                        </label>
                     </div>
 
                     <!-- Tabela de Proprietários -->
@@ -51,6 +49,7 @@
                       :owners="owners"
                       :type-owners="typeOwners"
                       @add-owner="showModalOwner = true"
+                      @add-co-owner="openCoOwnerModal"
                       @remove-owner="removeOwner"
                     />
 
@@ -242,6 +241,15 @@
       @submit="handleAddOwner"
     />
 
+    <!-- Modal de Co-proprietário -->
+    <CoOwnerModal
+      :show="showModalCoOwner"
+      :type-owners="typeOwners"
+      :existing-owners="owners"
+      @close="closeCoOwnerModal"
+      @submit="handleAddCoOwner"
+    />
+
     <!-- Modal de Documento -->
     <DocumentModal
       :show="showModalDocument"
@@ -301,6 +309,7 @@ import { usePropertyForm } from '@/composables/usePropertyForm'
 // Componentes
 import OwnersTable from '@/Components/Property/OwnersTable.vue'
 import OwnerModal from '@/Components/Property/OwnerModal.vue'
+import CoOwnerModal from '@/Components/Property/CoOwnerModal.vue'
 import DocumentsTable from '@/Components/Property/DocumentsTable.vue'
 import DocumentModal from '@/Components/Property/DocumentModal.vue'
 import PropertyFormFields from '@/Components/Property/PropertyFormFields.vue'
@@ -379,6 +388,7 @@ const {
 
   // Modais
   showModalOwner,
+  showModalCoOwner,
   showModalDocument,
 
   // Cidades
@@ -416,6 +426,24 @@ const {
   submitForm,
   showAlert
 } = usePropertyForm(props)
+
+// ====================================
+// INICIALIZAÇÃO DO FORMULÁRIO (corrigido para is_active)
+// ====================================
+if (props.mode === 'create') {
+  // Modo criação: sempre ativo por padrão
+  form.is_active = true
+} else if (props.mode === 'edit' && props.property) {
+  // Modo edição: usar valor da propriedade, garantindo tipo booleano
+  form.is_active = props.property.is_active === true || props.property.is_active === 1
+}
+
+// Garante que o modal de co-proprietário só abre mediante evento explícito
+const openCoOwnerModal = () => {
+  if (showModalCoOwner && typeof showModalCoOwner === 'object' && 'value' in showModalCoOwner) {
+    showModalCoOwner.value = true
+  }
+}
 
 // ====================================
 // COMPUTED (adicionados novos)
@@ -563,16 +591,146 @@ const handleOwnerSearch = (term) => {
   searchUsers(term)
 }
 
-const handleAddOwner = () => {
-  const success = addOwner()
-  if (success) {
-    showModalOwner.value = false
+const handleAddOwner = (submitData = null) => {
+  if (submitData) {
+    if (submitData.type === 'owner') {
+      // ✅ CORREÇÃO: Usar dados do modal, não selectedOwner global
+      const ownerData = submitData.data
+      
+      // Buscar tipo de propriedade
+      const typeOwnership = typeOwners.value.find(type => type.id === ownerData.type_ownership_id)
+      
+      // Criar novo proprietário com dados corretos
+      const newOwner = {
+        user_id: ownerData.user_id, // ✅ user_id já vem correto do modal
+        user: {
+          id: ownerData.user_id,
+          name: ownerData.name,
+          cpf_cnpj: ownerData.cpf_cnpj
+        },
+        percentage: ownerData.percentage,
+        percent: ownerData.percentage,
+        type_ownership_id: ownerData.type_ownership_id,
+        type_ownership: {
+          id: typeOwnership?.id || ownerData.type_ownership_id,
+          name: typeOwnership?.name || 'Proprietário'
+        },
+        observations: ownerData.observations
+      }
+      
+      // Verificar duplicação
+      const exists = owners.value.find(owner => 
+        (owner.user?.id || owner.user_id) === ownerData.user_id
+      )
+      
+      if (exists) {
+        showAlert('Este usuário já foi adicionado', 'warning')
+        return
+      }
+      
+      owners.value.push(newOwner)
+      form.owners = owners.value
+      showModalOwner.value = false
+      showAlert('Proprietário adicionado com sucesso', 'success')
+    } else if (submitData.type === 'coowner') {
+      // Adiciona co-proprietário como linha na tabela de proprietários
+      const coOwnerData = submitData.data
+      
+      // Busca dados do tipo de propriedade
+      const typeOwnership = typeOwners.value.find(type => type.id === coOwnerData.type_ownership)
+      
+      // ✅ CORREÇÃO: Estrutura correta para co-proprietário
+      const coOwnerEntry = {
+        user_id: null, // Co-proprietários não têm user_id
+        name: coOwnerData.name, // ✅ Nome no nível raiz
+        cpf_cnpj: coOwnerData.cpf_cnpj, // ✅ CPF/CNPJ no nível raiz
+        percentage: coOwnerData.percent,
+        percent: coOwnerData.percent, // Compatibilidade
+        type_ownership_id: coOwnerData.type_ownership,
+        type_ownership: {
+          id: typeOwnership?.id || coOwnerData.type_ownership,
+          name: typeOwnership?.name || 'Co-proprietário'
+        },
+        observations: coOwnerData.observations,
+        isCoOwner: true, // Flag para identificar
+        // Para exibição na tabela (compatibilidade)
+        user: {
+          id: null,
+          name: coOwnerData.name,
+          cpf_cnpj: coOwnerData.cpf_cnpj
+        }
+      }
+      
+      owners.value.push(coOwnerEntry)
+      form.owners = owners.value
+      showAlert('Co-proprietário adicionado com sucesso', 'success')
+    } else if (submitData.type === 'coowners-only') {
+      // Apenas co-proprietários foram adicionados, fecha o modal
+      showModalOwner.value = false
+    }
+  } else {
+    // Lógica original para quando não há submitData
+    const success = addOwner()
+    if (success) {
+      showModalOwner.value = false
+    }
   }
 }
 
 const closeOwnerModal = () => {
   showModalOwner.value = false
   clearOwner()
+}
+
+// Métodos para Co-proprietário Modal
+const closeCoOwnerModal = () => {
+  showModalCoOwner.value = false
+}
+
+const handleAddCoOwner = (submitData) => {
+  console.log('🔍 DEBUG handleAddCoOwner - submitData:', submitData)
+  
+  if (submitData && submitData.type === 'co-owners') {
+    // Adiciona cada co-proprietário como linha na tabela de proprietários
+    submitData.data.forEach((coOwner, index) => {
+      console.log(`🔍 DEBUG handleAddCoOwner - processando coOwner ${index}:`, coOwner)
+      
+      // Busca dados do tipo de propriedade
+      const typeOwnership = typeOwners.value.find(type => type.id === coOwner.type_ownership_id)
+      
+      // ✅ CORREÇÃO: Estrutura correta para co-proprietário
+      const coOwnerEntry = {
+        user_id: null, // Co-proprietários não têm user_id
+        name: coOwner.name, // ✅ Nome no nível raiz
+        cpf_cnpj: coOwner.cpf_cnpj, // ✅ CPF/CNPJ no nível raiz
+        percentage: coOwner.percentage,
+        percent: coOwner.percentage, // Compatibilidade
+        type_ownership_id: coOwner.type_ownership_id,
+        type_ownership: {
+          id: typeOwnership?.id || coOwner.type_ownership_id,
+          name: typeOwnership?.name || 'Co-proprietário'
+        },
+        observations: coOwner.observations,
+        isCoOwner: true, // Flag para identificar
+        // Para exibição na tabela (compatibilidade)
+        user: {
+          id: null,
+          name: coOwner.name,
+          cpf_cnpj: coOwner.cpf_cnpj
+        }
+      }
+      
+      console.log(`🔍 DEBUG handleAddCoOwner - coOwnerEntry criado ${index}:`, coOwnerEntry)
+      
+      owners.value.push(coOwnerEntry)
+    })
+    
+    console.log('🔍 DEBUG handleAddCoOwner - owners.value final:', owners.value)
+    
+    form.owners = owners.value
+    showModalCoOwner.value = false
+    showAlert(`${submitData.data.length} co-proprietário(s) adicionado(s) com sucesso`, 'success')
+  }
 }
 
 const closeDocumentModal = () => {

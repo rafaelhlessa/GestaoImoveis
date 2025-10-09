@@ -2,6 +2,25 @@
   <div class="residential-form space-y-6">
     <div class="bg-gray-50 p-4 rounded-lg">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Dados Residenciais</h3>
+
+      <!-- Localização -->
+      <div class="mb-4">
+        <h4 class="text-sm font-semibold text-gray-800 mb-2">Localização</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">Proximidade de serviços</label>
+            <input v-model="localForm.proximidade_servicos" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Próximo a escolas, mercados" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">Transporte</label>
+            <input v-model="localForm.transporte" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Linhas de ônibus, metrô" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">Segurança</label>
+            <input v-model="localForm.seguranca" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Monitoramento, bairro tranquilo" />
+          </div>
+        </div>
+      </div>
       
       <!-- Linha 1: Cômodos e Dormitórios -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -73,6 +92,32 @@
         </div>
       </div>
 
+      <!-- Terreno e Áreas -->
+      <div class="mb-4">
+        <h4 class="text-sm font-semibold text-gray-800 mb-2">Terreno</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">Topografia</label>
+            <select v-model="localForm.terreno_topografia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Selecione...</option>
+              <option value="plano">Plano</option>
+              <option value="declive">Declive</option>
+              <option value="aclive">Aclive</option>
+              <option value="ondulado">Ondulado</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">Posição</label>
+            <select v-model="localForm.terreno_posicao" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Selecione...</option>
+              <option value="esquina">Esquina</option>
+              <option value="meio_quadra">Meio de quadra</option>
+              <option value="cul_de_sac">Cul-de-sac</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <!-- Linha 3: Áreas -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
@@ -107,6 +152,103 @@
             placeholder="Ex: 250.00"
           >
           <p v-if="errors.total_area" class="text-red-500 text-xs mt-1">{{ errors.total_area }}</p>
+        </div>
+      </div>
+
+      <!-- Construção / Condições e Mobília -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Padrão construtivo</label>
+          <select v-model="localForm.construcao_padrao" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Selecione...</option>
+            <option value="alto">Alto padrão</option>
+            <option value="medio">Médio padrão</option>
+            <option value="basico">Básico</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Idade do imóvel (anos)</label>
+          <input v-model.number="localForm.construcao_idade" min="0" type="number" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Reformas</label>
+          <input v-model="localForm.estado_reformas" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Cozinha reformada em 2023" />
+        </div>
+      </div>
+
+      <!-- Distribuição interna adicional -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Suítes</label>
+          <input v-model.number="localForm.suites" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Salas</label>
+          <input v-model.number="localForm.salas" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Cozinha</label>
+          <select v-model="localForm.cozinha" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Selecione...</option>
+            <option value="padrao">Padrão</option>
+            <option value="planejada">Planejada</option>
+            <option value="americana">Americana</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Área de serviço</label>
+          <select v-model="localForm.area_servico" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Selecione...</option>
+            <option value="sim">Sim</option>
+            <option value="nao">Não</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Áreas externas -->
+      <div class="mb-4">
+        <h4 class="text-sm font-semibold text-gray-800 mb-2">Áreas externas</h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <label class="flex items-center space-x-2">
+            <input type="checkbox" v-model="localForm.external_quintal" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+            <span class="text-sm">Quintal</span>
+          </label>
+          <label class="flex items-center space-x-2">
+            <input type="checkbox" v-model="localForm.external_jardim" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+            <span class="text-sm">Jardim</span>
+          </label>
+          <label class="flex items-center space-x-2">
+            <input type="checkbox" v-model="localForm.external_piscina" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+            <span class="text-sm">Piscina</span>
+          </label>
+          <label class="flex items-center space-x-2">
+            <input type="checkbox" v-model="localForm.external_churrasqueira" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+            <span class="text-sm">Churrasqueira</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Instalações -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Instalações elétricas</label>
+          <select v-model="localForm.estado_instalacoes_eletricas" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Selecione...</option>
+            <option value="novas">Novas</option>
+            <option value="boas">Boas</option>
+            <option value="regulares">Regulares</option>
+            <option value="precisam_reforma">Precisam de reforma</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Instalações hidráulicas</label>
+          <select v-model="localForm.estado_instalacoes_hidraulicas" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Selecione...</option>
+            <option value="novas">Novas</option>
+            <option value="boas">Boas</option>
+            <option value="regulares">Regulares</option>
+            <option value="precisam_reforma">Precisam de reforma</option>
+          </select>
         </div>
       </div>
 

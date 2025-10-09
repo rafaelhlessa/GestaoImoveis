@@ -15,6 +15,7 @@ class PropertyEvaluation extends Model
         'appraiser',
         'valuation',
         'comments', // Adicionar este campo
+        'details',
         'created_at',
         'updated_at',
         // Novos campos de avaliação
@@ -28,7 +29,7 @@ class PropertyEvaluation extends Model
         'total_area',
         'property_condition',
         'garage_spaces',
-        'furniture_status',
+    'furniture_status',
         // Comercial
         'floors',
         'office_rooms',
@@ -41,18 +42,23 @@ class PropertyEvaluation extends Model
         'farming_types',
         'water_source',
         'water_source_details',
-        'observations'
+        'observations',
+        'pdf_path'
+        , 'owner_acknowledged_at', 'owner_acknowledged_by', 'owner_acknowledged'
     ];
 
     protected $casts = [
         'construction_types' => 'array',
         'farming_types' => 'array',
+        'details' => 'array',
         'has_construction' => 'boolean',
         'has_farming' => 'boolean',
         'built_area' => 'decimal:2',
         'total_area' => 'decimal:2',
         'rural_total_area' => 'decimal:2',
-        'valuation' => 'decimal:2'
+        'valuation' => 'decimal:2',
+        'owner_acknowledged_at' => 'datetime',
+        'owner_acknowledged' => 'boolean'
     ];
 
     // Adicionar appends para incluir automaticamente os accessors
@@ -61,8 +67,19 @@ class PropertyEvaluation extends Model
         'farming_types_text',
         'property_condition_label',
         'furniture_status_label',
-        'water_source_label'
+        'water_source_label',
+        'pdf_url'
     ];
+
+    public function getCanEvaluatorDeleteAttribute()
+    {
+        // avaliador pode excluir somente se ainda não houver confirmação do proprietário
+        if (!is_null($this->owner_acknowledged_at)) return false;
+        if (array_key_exists('owner_acknowledged', $this->attributes)) {
+            return !$this->owner_acknowledged;
+        }
+        return true;
+    }
 
     // Relacionamentos existentes
     public function property()
@@ -78,6 +95,23 @@ class PropertyEvaluation extends Model
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function media()
+    {
+        return $this->hasMany(PropertyEvaluationMedia::class, 'evaluation_id');
+    }
+
+    // Novo: relacionamento com rebanhos
+    public function herds()
+    {
+        return $this->hasMany(PropertyEvaluationHerd::class, 'evaluation_id')->with('ages');
+    }
+
+    public function getPdfUrlAttribute()
+    {
+        if (!$this->pdf_path) return null;
+        return url('storage/' . ltrim($this->pdf_path, '/'));
     }
 
     // Accessor para tipos de construção como string

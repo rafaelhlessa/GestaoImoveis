@@ -1,19 +1,19 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div
-        v-if="show"
+      <div 
+        v-if="show" 
         class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
         @click="$emit('close')"
       >
-        <div
+        <div 
           class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
           @click.stop
         >
           <h3 class="text-lg font-medium text-gray-900 mb-4">
             Adicionar Proprietário
           </h3>
-
+          
           <form @submit.prevent="handleSubmit">
             <!-- Mensagem de contexto -->
             <div v-if="userFilterMessage" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -36,8 +36,6 @@
               </label>
 
               <!-- Perfil Proprietário: Auto-seleção -->
-               {{ isOwnerProfile  }}
-               {{ canAddOwners }}
               <div v-if="isOwnerProfile && availableUsers.length === 1">
                 <div class="p-3 bg-green-50 border border-green-200 rounded-md">
                   <div class="flex items-center">
@@ -55,12 +53,12 @@
                   </div>
                 </div>
               </div>
-
+              
 
               <!-- Outros perfis: Busca com sugestões -->
               <div v-else class="relative">
-                <input
-                  type="text"
+                <input 
+                  type="text" 
                   v-model="searchInput"
                   @input="handleSearchInput"
                   @focus="showSuggestions = true"
@@ -69,16 +67,16 @@
                   :placeholder="searchPlaceholder"
                   class="w-full px-3 py-2.5 text-gray-700 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
-
+                
                 <!-- Lista de Sugestões -->
-                <div
+                <div 
                   v-if="showSuggestions && searchSuggestions.length > 0"
                   class="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-y-auto"
                 >
                   <ul class="py-1">
-                    <li
-                      v-for="user in searchSuggestions"
-                      :key="user.id"
+                    <li 
+                      v-for="user in searchSuggestions" 
+                      :key="user.id" 
                       @click="selectUserFromSuggestion(user)"
                       class="px-3 py-2 text-sm text-gray-900 cursor-pointer hover:bg-gray-100"
                     >
@@ -94,8 +92,8 @@
                 </div>
 
                 <!-- Mensagem quando não há resultados -->
-                <div
-                  v-if="showSuggestions && searchInput.length >= 2 && searchSuggestions.length === 0"
+                <div 
+                  v-if="showSuggestions && searchInput.length >= 2 && searchSuggestions.length === 0" 
                   class="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200"
                 >
                   <div class="p-3 text-sm text-gray-500 text-center">
@@ -129,11 +127,11 @@
                 Percentual de Propriedade *
               </label>
               <div class="mt-1 flex items-center">
-                <input
-                  type="number"
-                  id="percent"
+                <input 
+                  type="number" 
+                  id="percent" 
                   v-model="selectedOwner.percent"
-                  max="100"
+                  max="100" 
                   min="0.01"
                   step="0.01"
                   required
@@ -154,16 +152,16 @@
               <label for="type_ownership" class="block text-sm font-medium text-gray-700">
                 Tipo de Propriedade *
               </label>
-              <select
-                id="type_ownership"
+              <select 
+                id="type_ownership" 
                 v-model="selectedOwner.type_ownership"
                 required
                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               >
                 <option value="">Selecione o tipo</option>
-                <option
-                  v-for="type in availableTypes"
-                  :key="type.id"
+                <option 
+                  v-for="type in availableTypes" 
+                  :key="type.id" 
                   :value="type.id"
                   :disabled="type.disabled"
                   :class="{ 'text-gray-400': type.disabled }"
@@ -174,7 +172,7 @@
                   </span>
                 </option>
               </select>
-
+              
               <!-- Aviso quando tipo Proprietário não disponível -->
               <div v-if="!canAddProprietario" class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
                 <div class="flex">
@@ -197,10 +195,10 @@
               <label for="observations" class="block text-sm font-medium text-gray-700">
                 Observações
               </label>
-              <textarea
-                id="observations"
+              <textarea 
+                id="observations" 
                 v-model="selectedOwner.observations"
-                rows="3"
+                rows="3" 
                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 placeholder="Observações adicionais..."
               />
@@ -227,21 +225,21 @@
 
             <!-- Botões -->
             <div class="flex justify-end space-x-3">
-              <button
-                type="button"
+              <button 
+                type="button" 
                 @click="clearForm"
                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 Limpar
               </button>
-              <button
-                type="button"
+              <button 
+                type="button" 
                 @click="$emit('close')"
                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 Cancelar
               </button>
-              <button
+              <button 
                 type="submit"
                 :disabled="!isFormValid || formErrors.length > 0"
                 class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -315,10 +313,10 @@ onMounted(() => {
 // EMITS
 // ====================================
 const emit = defineEmits([
-  'close',
-  'search',
-  'select-user',
-  'clear',
+  'close', 
+  'search', 
+  'select-user', 
+  'clear', 
   'submit'
 ])
 
@@ -334,19 +332,19 @@ const searchInput = ref('')
 
 // Verifica se é perfil proprietário
 const isOwnerProfile = computed(() => {
-  return props.currentUser?.profiles?.includes('proprietario') && !props.currentUser?.profiles?.includes('prestador')
+  return props.currentUser?.profiles?.owner
 })
 
 // Label para seleção
 const selectionLabel = computed(() => {
-  const profiles = props.currentUser?.profiles || []
-
-  if (profiles.includes('proprietario') && !profiles.includes('prestador')) {
+  const profiles = props.currentUser?.profiles
+  
+  if (profiles?.owner && profiles?.['service-provider']) {
+    return 'Proprietário/Prestador'
+  } else if (profiles?.owner) {
     return 'Proprietário'
-  } else if (profiles.includes('prestador') && !profiles.includes('proprietario')) {
+  } else if (profiles?.['service-provider']) {
     return 'Buscar Proprietário Autorizado'
-  } else if (profiles.includes('proprietario') && profiles.includes('prestador')) {
-    return 'Buscar Proprietário'
   } else {
     return 'Selecionar Usuário'
   }
@@ -354,8 +352,8 @@ const selectionLabel = computed(() => {
 
 // Placeholder para busca
 const searchPlaceholder = computed(() => {
-  return isOwnerProfile.value
-    ? 'Selecione da lista'
+  return isOwnerProfile.value 
+    ? 'Selecione da lista' 
     : 'Digite o nome para buscar'
 })
 
@@ -370,7 +368,7 @@ const searchDisplayText = computed(() => {
 // Sugestões de busca
 const searchSuggestions = computed(() => {
   const term = searchInput.value.toLowerCase().trim()
-
+  
   if (!term || term.length < 2) {
     return []
   }
@@ -389,8 +387,18 @@ const availablePercentage = computed(() => {
     }
     return total
   }, 0)
-
+  
   return Math.max(0, 100 - usedPercentage)
+})
+
+// Percentual usado pelos co-proprietários no modal
+const modalUsedPercentage = computed(() => {
+  const ownerPercent = parseFloat(props.selectedOwner.percent || 0)
+  const existingOwnersPercent = props.existingOwners.reduce((total, owner) => {
+    return total + parseFloat(owner.percentage || owner.percent || 0)
+  }, 0)
+  
+  return ownerPercent + existingOwnersPercent
 })
 
 // Tipos de propriedade disponíveis
@@ -415,8 +423,9 @@ const canAddProprietario = computed(() => {
 
 // Validação do formulário
 const isFormValid = computed(() => {
-  return props.selectedOwner.id &&
-         props.selectedOwner.percent &&
+  // Validação para proprietário principal
+  return props.selectedOwner.id && 
+         props.selectedOwner.percent && 
          props.selectedOwner.type_ownership &&
          parseFloat(props.selectedOwner.percent) > 0 &&
          parseFloat(props.selectedOwner.percent) <= 100
@@ -425,11 +434,11 @@ const isFormValid = computed(() => {
 // Erros de validação
 const formErrors = computed(() => {
   const errors = []
-
+  
   if (!props.selectedOwner.id) {
     errors.push('Selecione um usuário')
   }
-
+  
   if (!props.selectedOwner.percent) {
     errors.push('Informe o percentual de propriedade')
   } else {
@@ -440,14 +449,14 @@ const formErrors = computed(() => {
     if (percent > 100) {
       errors.push('Percentual não pode ser maior que 100%')
     }
-
+    
     // Validação específica para tipo proprietário
     const typeId = parseInt(props.selectedOwner.type_ownership)
     if (typeId === 1 && percent > availablePercentage.value) {
       errors.push(`Percentual máximo para proprietários: ${availablePercentage.value.toFixed(2)}%`)
     }
   }
-
+  
   if (!props.selectedOwner.type_ownership) {
     errors.push('Selecione o tipo de propriedade')
   }
@@ -458,12 +467,12 @@ const formErrors = computed(() => {
       const ownerId = owner.user?.id || owner.user_id || owner.id
       return ownerId == props.selectedOwner.id
     })
-
+    
     if (alreadyExists) {
       errors.push('Este usuário já foi adicionado como proprietário')
     }
   }
-
+  
   return errors
 })
 
@@ -497,7 +506,7 @@ const handleSearchInput = () => {
   if (!searchInput.value.trim() && props.selectedOwner.id) {
     clearForm()
   }
-
+  
   showSuggestions.value = searchInput.value.length >= 2
 }
 
@@ -526,7 +535,19 @@ const clearForm = () => {
 
 const handleSubmit = () => {
   if (isFormValid.value && formErrors.value.length === 0) {
-    emit('submit')
+    // ✅ CORREÇÃO: Estruturar dados corretamente com user_id
+    const ownerData = {
+      user_id: props.selectedOwner.id, // ✅ Garantir que user_id seja definido
+      type_ownership_id: props.selectedOwner.type_ownership,
+      percentage: parseFloat(props.selectedOwner.percent),
+      observations: props.selectedOwner.observations || null,
+      // Incluir dados do usuário para compatibilidade
+      id: props.selectedOwner.id,
+      name: props.selectedOwner.name,
+      cpf_cnpj: props.selectedOwner.cpf_cnpj
+    }
+    
+    emit('submit', { type: 'owner', data: ownerData })
   }
 }
 

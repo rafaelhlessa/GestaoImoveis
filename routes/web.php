@@ -8,12 +8,13 @@ use App\Http\Controllers\ActivationController;
 use App\Http\Controllers\Auth\TokenLoginController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\PropertyController;
+use App\Http\Controllers\PropertyEvaluationController;
 use App\Http\Controllers\AuthorizationController;
 use App\Http\Controllers\ServiceProviderController;
 use App\Http\Middleware\ServiceProviderMiddleware;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DevController;
-use App\Http\Controllers\PropertyEvaluationController;
+use App\Http\Controllers\PropertyVeterinaryDeclarationController;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
@@ -58,6 +59,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::resource('authorizations', AuthorizationController::class);
     Route::patch('authorizations/authorizations/{auth}', [AuthorizationController::class, 'updateAuthChange'])->name('authorizations.updateAuthChange');
+    // Avaliações: upload de imagens e PDF
+    Route::post('/properties/{property}/evaluations/{evaluation}/media', [PropertyEvaluationController::class, 'uploadMedia'])->name('properties.evaluations.media');
+    Route::post('/properties/{property}/evaluations/{evaluation}/pdf', [PropertyEvaluationController::class, 'generatePdf'])->name('properties.evaluations.pdf');
+    Route::get('/test/pdf', [PropertyEvaluationController::class, 'testPdf'])->name('test.pdf');
 });
 
 Route::get('/view-email/activate-account', function () {
@@ -232,9 +237,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('property.updateDocument')
         ->where('documentId', '[0-9]+');
 
+    // Lista do avaliador
+    Route::get('/my-evaluations', [PropertyEvaluationController::class, 'myEvaluations'])->name('my.evaluations');
+    // Proprietário confirma recebimento da avaliação (PUT boolean)
+    Route::put('/properties/{property}/evaluations/{evaluation}/acknowledge', [PropertyEvaluationController::class, 'acknowledge'])
+        ->name('properties.evaluations.acknowledge')
+        ->where(['property' => '[0-9]+', 'evaluation' => '[0-9]+']);
+
     // Dashboard
     Route::get('/dashboard', [ServiceProviderController::class, 'index'])
         ->name('dashboard');
+
+    // Declarações da Inspetoria Veterinária
+    Route::prefix('properties/{property}/veterinary-declarations')->name('properties.veterinary.')->group(function () {
+        Route::post('/', [PropertyVeterinaryDeclarationController::class, 'store'])->name('store');
+        Route::get('/', [PropertyVeterinaryDeclarationController::class, 'index'])->name('index');
+        Route::get('/pdf', [PropertyVeterinaryDeclarationController::class, 'generatePdf'])->name('pdf');
+        Route::get('/{declaration}', [PropertyVeterinaryDeclarationController::class, 'show'])->name('show');
+        Route::get('/{declaration}/pdf', [PropertyVeterinaryDeclarationController::class, 'generateSinglePdf'])->name('single.pdf');
+        Route::get('/batch/{batch}/pdf', [PropertyVeterinaryDeclarationController::class, 'generateBatchPdf'])->name('batch.pdf');
+    });
 });
 
 Route::middleware(['auth'])->group(function () {

@@ -124,11 +124,19 @@ const validProperties = computed(() => {
                                         <h2 class="mt-4 text-sm font-medium text-gray-900">
                                             <b>{{ property.nickname }}</b>
                                         </h2>
-                                        <p class="mt-1 text-sm font-medium text-gray-900">{{ property.district }}</p>
-                                        <p class="mt-1 text-sm font-medium text-gray-900">{{ property.locality }}</p>
+                                        
+                                        <p v-if="property.type_property === 1" class="mt-1 text-sm font-medium text-gray-900">Distrito: <b>{{ property.district }}</b></p>
+                                        <p v-else class="mt-1 text-sm font-medium text-gray-900">Subdistrito: {{ property.district }}</p>
+
+                                        <p v-if="property.type_property === 1" class="mt-1 text-sm font-medium text-gray-900">Bairro: <b>{{ property.locality }}</b></p>
+                                        <p v-else class="mt-1 text-sm font-medium text-gray-900">Localidade: {{ property.locality }}</p>
+                                        
                                         <p class="mt-1 text-sm font-medium text-gray-900">{{ property.area }} - {{ property.unit }}</p>
-                                        <p class="mt-1 text-sm font-medium text-gray-900">
+                                        <p v-if="property.title_deed != '3'" class="mt-1 text-sm font-medium text-gray-900">
                                             {{ getTitleDeedText(property.title_deed) }} - Nº {{ property.title_deed_number }}
+                                        </p>
+                                        <p v-else class="mt-1 text-sm font-medium text-gray-900">
+                                            {{ getTitleDeedText(property.title_deed) }} - {{ property.title_deed_number }}
                                         </p>
                                     </div>
                                 </li>

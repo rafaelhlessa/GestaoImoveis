@@ -5,6 +5,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import Toast from '@/Components/Toast.vue';
 
 const showingNavigationDropdown = ref(false);
 
@@ -69,6 +70,14 @@ onMounted(() => {
                                     :active="route().current('property.index')"
                                 >
                                     Propriedades
+                                </NavLink>
+
+                                <NavLink
+                                    v-if="user?.profiles?.includes('prestador')"
+                                    :href="route('my.evaluations')"
+                                    :active="route().current('my.evaluations')"
+                                >
+                                    Minhas Avaliações
                                 </NavLink>
                             </div>
                         </div>
@@ -197,6 +206,14 @@ onMounted(() => {
                         >
                             Propriedades
                         </ResponsiveNavLink>
+
+                        <ResponsiveNavLink
+                            v-if="user?.profiles?.includes('prestador')"
+                            :href="route('my.evaluations')"
+                            :active="route().current('my.evaluations')"
+                        >
+                            Minhas Avaliações
+                        </ResponsiveNavLink>
                     </div>
 
                     <!-- Responsive Settings Options -->
@@ -249,6 +266,7 @@ onMounted(() => {
             <!-- Page Content -->
             <main>
                 <slot />
+                <Toast />
             </main>
         </div>
     </div>

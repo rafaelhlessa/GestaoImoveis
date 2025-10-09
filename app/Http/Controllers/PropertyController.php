@@ -5,19 +5,21 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorePropertyRequest;
 use App\Http\Requests\UpdatePropertyRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use App\Models\Property;
 use App\Models\PropertyDocument;
 use App\Models\User;
 use App\Models\PropertyUser;
+use App\Models\PropertyCoOwner;
 use App\Models\Authorization;
 use App\Models\TypeOwnership;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PropertyController extends Controller
 {
@@ -29,11 +31,16 @@ class PropertyController extends Controller
         Gate::authorize('viewAny', Property::class);
 
         $user = Auth::user();
+        if ($user instanceof \App\Models\User) {
+            if (!$user->relationLoaded('profiles')) {
+                $user->load('profiles');
+            }
+        }
 
         // Proprietários e prestadores podem acessar suas próprias propriedades
-        if ($user->hasProfile('proprietario') || $user->hasProfile('prestador')) {
+        if ($user instanceof \App\Models\User && ($user->hasProfile('proprietario') || $user->hasProfile('prestador'))) {
             $cacheKey = 'properties_user_' . $user->id;
-            $properties = \Cache::remember($cacheKey, 60, function () use ($user) {
+            $properties = Cache::remember($cacheKey, 60, function () use ($user) {
                 return Property::select([
                     'properties.id', 'properties.is_active', 'properties.title_deed', 'properties.title_deed_number',
                     'properties.area', 'properties.unit', 'properties.type_property', 'properties.address',
@@ -53,7 +60,7 @@ class PropertyController extends Controller
             }
 
             // Debug: verificar se há propriedades null
-            \Log::info('Properties debug:', [
+            Log::info('Properties debug:', [
                 'user_id' => $user->id,
                 'properties_count' => $properties->count(),
                 'properties_items' => $properties->items(),
@@ -85,15 +92,47 @@ class PropertyController extends Controller
     public function create()
     {
         $currentUser = Auth::user();
+        if ($currentUser instanceof \App\Models\User) {
+            if (!$currentUser->relationLoaded('profiles')) {
+                $currentUser->load('profiles');
+            }
+        }
 
-    if (!$currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador')) {
+    if (!($currentUser instanceof \App\Models\User) || (!$currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador'))) {
             return $this->returnUnauthorizedError(
                 'Você não tem permissão para criar propriedades.',
                 'general'
             );
         }
 
-        $users = $this->getAvailableUsers($currentUser);
+        // Lógica para garantir o comportamento correto na seleção de proprietário
+        $profiles = ($currentUser instanceof \App\Models\User) ? $currentUser->profiles->pluck('slug')->toArray() : [];
+        $isOwnerOnly = in_array('proprietario', $profiles) && !in_array('prestador', $profiles);
+        $isProviderOnly = in_array('prestador', $profiles) && !in_array('proprietario', $profiles);
+        $isBoth = in_array('proprietario', $profiles) && in_array('prestador', $profiles);
+
+        $authorizedOwners = [];
+        if ($isProviderOnly || $isBoth) {
+                $authorizedOwnerIds = DB::table('authorizations')
+                ->where('service_provider_id', $currentUser->id)
+                ->where('can_create_properties', 1)
+                ->pluck('owner_id')
+                ->toArray();
+            $authorizedOwners = \App\Models\User::whereIn('id', $authorizedOwnerIds)
+                ->get()
+                ->map([$this, 'formatUser'])
+                ->toArray();
+        }
+
+        if ($isOwnerOnly) {
+            $users = [ $this->formatUser($currentUser) ];
+        } elseif ($isProviderOnly) {
+            $users = $authorizedOwners;
+        } elseif ($isBoth) {
+            $users = array_merge([ $this->formatUser($currentUser) ], $authorizedOwners);
+        } else {
+            $users = [];
+        }
         $authorizations = $this->getUserAuthorizations($currentUser);
 
 
@@ -118,12 +157,17 @@ class PropertyController extends Controller
     {
         $validated = $request->validated();
         $currentUser = Auth::user();
+        if ($currentUser instanceof \App\Models\User) {
+            if (!$currentUser->relationLoaded('profiles')) {
+                $currentUser->load('profiles');
+            }
+        }
 
         try {
             // ✅ CORREÇÃO: Proprietários (perfil 1) sempre podem adicionar a si mesmos
             if ($request->has('owners') && is_array($request->owners)) {
                 // Só valida permissões se NÃO for proprietário puro
-                if (!$currentUser->hasProfile('proprietario')) {
+                if (!($currentUser instanceof \App\Models\User) || !$currentUser->hasProfile('proprietario')) {
                     $this->validateOwnerPermissions($currentUser, $request->owners);
                 }
 
@@ -141,23 +185,65 @@ class PropertyController extends Controller
 
                 $property = Property::create($validated);
 
-                // Inserindo Proprietários
+                // Inserindo Proprietários e Co-proprietários
                 if ($request->has('owners') && is_array($request->owners)) {
-                    $owners = collect($request->owners)->map(function ($owner) use ($property) {
-                        return [
-                            'owner_id' => $owner['user_id'] ?? $owner['id'],
-                            'user_id' => $owner['user_id'] ?? $owner['id'],
-                            'type_ownership_id' => $owner['type_ownership_id'] ?? $owner['type_ownership'],
-                            'percentage' => $owner['percentage'] ?? $owner['percent'],
-                            'other' => $owner['observations'] ?? null,
-                            'property_id' => $property->id,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    })->toArray();
+                    foreach ($request->owners as $index => $owner) {
+                        Log::info("Processando proprietário {$index}:", is_array($owner) ? $owner : []);
 
-                    PropertyUser::insert($owners);
-                } else if ($currentUser->hasProfile('proprietario')) {
+                        try {
+                            // Nunca confundir id do registro (PropertyUser/PropertyCoOwner) com id de usuário
+                            $userId = $owner['user_id'] ?? ($owner['user']['id'] ?? null);
+                            $typeOwnershipId = $owner['type_ownership_id'] ?? $owner['type_ownership'] ?? null;
+                            $percentage = $owner['percentage'] ?? $owner['percent'] ?? 0;
+                            $percentage = is_numeric($percentage) ? (float) $percentage : 0.0;
+
+                            if ($userId === null || $userId === '') {
+                                // Co-proprietário (sem cadastro)
+                                $name = $owner['name'] ?? null;
+                                if (!$name) {
+                                    throw new \InvalidArgumentException('Nome do co-proprietário é obrigatório.');
+                                }
+                                // Default seguro para tipo de propriedade (1 = Proprietário), se não vier do front
+                                if ($typeOwnershipId === null) {
+                                    $typeOwnershipId = 1;
+                                }
+
+                                PropertyCoOwner::create([
+                                    'property_id' => $property->id,
+                                    'name' => $name,
+                                    'cpf_cnpj' => $owner['cpf_cnpj'] ?? null,
+                                    'percentage' => $percentage,
+                                    'type_ownership_id' => $typeOwnershipId,
+                                    'observations' => $owner['observations'] ?? $owner['other'] ?? null,
+                                ]);
+
+                                Log::info('PropertyCoOwner criado para nova propriedade', ['index' => $index, 'name' => $name]);
+                            } else {
+                                // Proprietário registrado
+                                if ($typeOwnershipId === null) {
+                                    $typeOwnershipId = 1;
+                                }
+
+                                PropertyUser::create([
+                                    'owner_id' => $userId,
+                                    'user_id' => $userId,
+                                    'type_ownership_id' => $typeOwnershipId,
+                                    'percentage' => $percentage,
+                                    'other' => $owner['observations'] ?? $owner['other'] ?? null,
+                                    'property_id' => $property->id,
+                                ]);
+
+                                Log::info('PropertyUser criado para nova propriedade', ['index' => $index, 'user_id' => $userId]);
+                            }
+                        } catch (\Exception $e) {
+                            Log::error("Erro ao criar proprietário {$index}", [
+                                'error' => $e->getMessage(),
+                                'owner_data' => $owner
+                            ]);
+                            throw $e;
+                        }
+                    }
+                } else if ($currentUser->profiles->contains('slug', 'owner')) {
                     // ✅ Se é proprietário e não tem owners no request, adiciona automaticamente
                     PropertyUser::create([
                         'owner_id' => $currentUser->id,
@@ -212,8 +298,8 @@ class PropertyController extends Controller
     {
         // Carrega o usuário com sua atividade
         $user = Auth::user();
-        if ($user) {
-            $user = \App\Models\User::with('activity')->find($user->id);
+        if ($user instanceof \App\Models\User) {
+            $user = \App\Models\User::with(['activity', 'profiles'])->find($user->id);
         }
 
         // Carrega a propriedade com todos os relacionamentos necessários, incluindo file_photo para exibição
@@ -230,7 +316,21 @@ class PropertyController extends Controller
                 // Removido 'file' dos documentos para evitar dados binários grandes
             },
             'evaluations' => function($query) {
-                $query->select(['id', 'property_id', 'user_id', 'valuation', 'comments', 'created_at', 'updated_at'])
+                $query->select([
+                        'id',
+                        'property_id',
+                        'user_id',
+                        'valuation',
+                        'comments',
+                        'property_type',
+                        'urban_subtype',
+                        'property_condition',
+                        'pdf_path',
+                        'owner_acknowledged',
+                        'owner_acknowledged_at',
+                        'created_at',
+                        'updated_at'
+                    ])
                       ->with(['user'])
                       ->orderBy('created_at', 'desc')
                       ->limit(10); // Limita a 10 avaliações mais recentes
@@ -254,22 +354,22 @@ class PropertyController extends Controller
             ->exists();
 
         // Lógica baseada em perfis acumuláveis
-        if ($user->hasProfile('proprietario')) {
-            $hasAccess = $isOwnerOfProperty;
-            $canEdit = $hasAccess;
-            $canEvaluate = false;
-        } elseif ($user->hasProfile('prestador')) {
-            // Query para verificar acesso a documentos
-            $hasAccess = DB::table('authorizations')
-                ->where('service_provider_id', $user->id)
-                ->where('can_view_documents', 1)
-                ->whereExists(function ($query) use ($property) {
-                    $query->select(DB::raw(1))
-                        ->from('property_user')
-                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                        ->where('property_user.property_id', $property->id);
-                })
-                ->exists();
+        if ($user instanceof \App\Models\User && $user->hasProfile('proprietario')) {
+                $hasAccess = $isOwnerOfProperty;
+                $canEdit = $hasAccess;
+                $canEvaluate = false;
+        } elseif ($user instanceof \App\Models\User && $user->hasProfile('prestador')) {
+                // Query para verificar acesso a documentos
+                $hasAccess = DB::table('authorizations')
+                    ->where('service_provider_id', $user->id)
+                    ->where('can_view_documents', 1)
+                    ->whereExists(function ($query) use ($property) {
+                        $query->select(DB::raw(1))
+                            ->from('property_user')
+                            ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                            ->where('property_user.property_id', $property->id);
+                    })
+                    ->exists();
 
             // Query para verificar permissão de criação/edição
             $canEdit = DB::table('authorizations')
@@ -330,15 +430,56 @@ class PropertyController extends Controller
                 'has_access' => $hasAccess
             ]
         ]);
+        
+        // ✅ Carregando todos os tipos de proprietários para exibição
+        $registeredOwners = $property->owners->map(function ($owner) {
+            return [
+                'id' => $owner->id,
+                'user_id' => $owner->pivot->user_id,
+                'name' => $owner->name,
+                'cpf_cnpj' => $owner->cpf_cnpj,
+                'percentage' => $owner->pivot->percentage,
+                'type_ownership_id' => $owner->pivot->type_ownership_id,
+                'observations' => $owner->pivot->other,
+                'type' => 'registered'
+            ];
+        });
+
+
+        $coOwners = PropertyCoOwner::with('typeOwnership')
+            ->where('property_id', $property->id)
+            ->get()
+            ->map(function ($coOwner) {
+                return [
+                    'id' => $coOwner->id,
+                    'user_id' => null,
+                    'name' => $coOwner->name,
+                    'cpf_cnpj' => $coOwner->cpf_cnpj,
+                    'percentage' => $coOwner->percentage,
+                    'type_ownership_id' => $coOwner->type_ownership_id,
+                    'observations' => $coOwner->observations,
+                    'type' => 'co-owner'
+                ];
+            });
+    
+
+        $allOwners = $registeredOwners->concat($coOwners);
+
+        // Carregar avaliações com mídia
+        $property->load(['evaluations.media', 'evaluations.user']);
 
         return Inertia::render('Properties/ShowProperty', [
             'property' => $property,
             'documents' => $property->documents->toArray(),
-            'owners' => $property->owners->toArray(),
-            'evaluations' => $property->evaluations->toArray(),
+            'owners' => $allOwners->toArray(),
+            'evaluations' => $property->evaluations->map(function($e){
+                return array_merge($e->toArray(), [
+                    'pdf_url' => $e->pdf_url,
+                ]);
+            })->toArray(),
             'typeOwnership' => $typeOwnership->toArray(),
             'success' => session('success'),
-            'isServiceProvider' => $user->hasProfile('prestador'),
+            'isServiceProvider' => ($user instanceof \App\Models\User) ? $user->hasProfile('prestador') : false,
             'canEdit' => $canEdit,
             'canEvaluate' => $canEvaluate,
             'canView' => $hasAccess,
@@ -357,31 +498,13 @@ class PropertyController extends Controller
     public function edit(Property $property)
     {
         $currentUser = Auth::user();
+        if ($currentUser instanceof \App\Models\User) {
+            if (!$currentUser->relationLoaded('profiles')) {
+                $currentUser->load('profiles');
+            }
+        }
 
-        // Verificar se existe relacionamento na tabela property_user
-        $propertyUsers = PropertyUser::where('property_id', $property->id)->get();
-        Log::info('Todos os proprietários desta propriedade:', [
-            'property_users' => $propertyUsers->map(function($pu) {
-                return [
-                    'id' => $pu->id,
-                    'user_id' => $pu->user_id,
-                    'property_id' => $pu->property_id,
-                    'type_ownership_id' => $pu->type_ownership_id,
-                    'percentage' => $pu->percentage
-                ];
-            })->toArray()
-        ]);
-
-        // Verificar especificamente se o usuário atual é proprietário
-        $isCurrentUserOwner = PropertyUser::where('property_id', $property->id)
-            ->where('user_id', $currentUser->id)
-            ->exists();
-
-        $currentUserOwnership = PropertyUser::where('property_id', $property->id)
-            ->where('user_id', $currentUser->id)
-            ->first();
-
-        // ✅ CORREÇÃO: Verificar permissões ANTES do Gate
+        // ✅ Verificar permissões ANTES do Gate
         if (!$this->canEditProperty($currentUser, $property)) {
             Log::warning('EDIT NEGADO - canEditProperty retornou false');
             return $this->returnUnauthorizedError(
@@ -390,7 +513,7 @@ class PropertyController extends Controller
             );
         }
 
-        // ✅ IMPORTANTE: Só chama Gate::authorize APÓS verificar permissões customizadas
+        // ✅ Gate::authorize após verificação customizada
         try {
             Gate::authorize('update', $property);
             Log::info('Gate::authorize passou com sucesso');
@@ -410,31 +533,58 @@ class PropertyController extends Controller
             'properties.other', 'properties.area', 'properties.unit', 'properties.type_property',
             'properties.address', 'properties.city', 'properties.city_id', 'properties.district',
             'properties.locality', 'properties.nickname', 'properties.about', 'properties.created_at',
-            'properties.updated_at', 'properties.file_photo' // ✅ Incluído file_photo para exibição no edit
+            'properties.updated_at', 'properties.file_photo'
         ])->with([
             'documents' => function($query) {
                 $query->select(['id', 'property_id', 'name', 'file_name', 'date', 'show', 'created_at', 'updated_at']);
-                // Removido 'file' dos documentos para evitar dados binários grandes
             },
             'owners', 'owners.typeOwnership'
         ])->findOrFail($property->id);
 
-        // Carregando os owners com os dados do usuário manualmente
-        $ownersWithUsers = PropertyUser::with(['typeOwnership'])
+        // ✅ CORREÇÃO: Carregar proprietários registrados
+        $registeredOwners = PropertyUser::with(['typeOwnership'])
             ->where('property_id', $property->id)
             ->get()
             ->map(function ($owner) {
                 $user = User::find($owner->user_id);
-                $owner->user = $user ? [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'cpf_cnpj' => $user->cpf_cnpj,
-                    'profiles' => $user->profiles->pluck('slug')->toArray(),
-                ] : null;
-                return $owner;
+                return [
+                    'id' => $owner->id,
+                    'user_id' => $owner->user_id,
+                    'name' => $user ? $user->name : 'Usuário não encontrado',
+                    'cpf_cnpj' => $user ? $user->cpf_cnpj : null,
+                    'percentage' => $owner->percentage,
+                    'type_ownership_id' => $owner->type_ownership_id,
+                    'observations' => $owner->other,
+                    'type' => 'registered',
+                    'profiles' => $user ? $user->profiles->pluck('slug')->toArray() : [],
+                ];
             });
 
-        Log::info('=== DEBUG EDIT PROPERTY - SUCESSO ===');
+        // ✅ CORREÇÃO: Carregar co-proprietários (sem cadastro)
+        $coOwners = PropertyCoOwner::with('typeOwnership')
+            ->where('property_id', $property->id)
+            ->get()
+            ->map(function ($coOwner) {
+                return [
+                    'id' => $coOwner->id,
+                    'user_id' => null, // Co-proprietário não tem user_id
+                    'name' => $coOwner->name,
+                    'cpf_cnpj' => $coOwner->cpf_cnpj,
+                    'percentage' => $coOwner->percentage,
+                    'type_ownership_id' => $coOwner->type_ownership_id,
+                    'observations' => $coOwner->observations,
+                    'type' => 'co-owner',
+                ];
+            });
+
+        // ✅ Combinar ambos os tipos de proprietários
+        $allOwners = $registeredOwners->concat($coOwners);
+
+        Log::info('=== DEBUG EDIT PROPERTY - SUCESSO ===', [
+            'registered_owners_count' => $registeredOwners->count(),
+            'co_owners_count' => $coOwners->count(),
+            'total_owners' => $allOwners->count(),
+        ]);
 
         return Inertia::render('Properties/EditProperty', [
             'mode' => 'edit',
@@ -448,10 +598,10 @@ class PropertyController extends Controller
             'users' => $this->getAvailableUsers($currentUser),
             'authorizations' => $this->getUserAuthorizations($currentUser),
             'currentUser' => $this->formatUser($currentUser),
-            'owners' => $ownersWithUsers,
+            'owners' => $allOwners->toArray(), // ✅ Todos os proprietários combinados
             'documents' => PropertyDocument::select(['id', 'property_id', 'name', 'file_name', 'date', 'show', 'created_at', 'updated_at'])
-                                          ->where('property_id', $property->id)
-                                          ->get(),
+                                        ->where('property_id', $property->id)
+                                        ->get(),
         ]);
     }
 
@@ -462,15 +612,20 @@ class PropertyController extends Controller
     {
         $property = Property::findOrFail($id);
         $currentUser = Auth::user();
+        if ($currentUser instanceof \App\Models\User) {
+            if (!$currentUser->relationLoaded('profiles')) {
+                $currentUser->load('profiles');
+            }
+        }
 
         try {
-            // ✅ CORREÇÃO PRINCIPAL: Só valida permissões se NÃO for proprietário puro
+            // ✅ Validar permissões: usuários com perfil "proprietario" podem gerenciar owners (mesmo se também forem prestadores)
             if ($request->has('owners') && is_array($request->owners)) {
-                if (!$currentUser->hasProfile('proprietario') || $currentUser->hasProfile('prestador')) {
-                    Log::info('Validando permissões de proprietários para perfil não-proprietário');
+                if (!($currentUser instanceof \App\Models\User) || !$currentUser->hasProfile('proprietario')) {
+                    Log::info('Validando permissões de proprietários (usuário sem perfil proprietario)');
                     $this->validateOwnerPermissions($currentUser, $request->owners);
                 } else {
-                    Log::info('Pulando validação de permissões - usuário é proprietário puro');
+                    Log::info('Pulando validação de permissões - usuário possui perfil proprietario');
                 }
 
                 // Valida percentuais independente do perfil
@@ -481,37 +636,84 @@ class PropertyController extends Controller
                 // Atualizar dados básicos da propriedade (preservando foto se não enviada)
                 $propertyData = $request->except(['documents', 'owners']);
 
-                // ✅ CORREÇÃO: Só atualiza file_photo se foi enviada uma nova
+                // ✅ Só atualiza file_photo se foi enviada uma nova
                 if (!$request->has('file_photo') || empty($request->file_photo)) {
-                    unset($propertyData['file_photo']); // Remove do array para não sobrescrever
+                    unset($propertyData['file_photo']);
                 }
 
                 $property->update($propertyData);
 
-                // Atualizar proprietários
+                // ✅ CORREÇÃO: Atualizar proprietários (registrados E co-proprietários)
                 if ($request->has('owners') && is_array($request->owners)) {
-                    PropertyUser::where('property_id', $property->id)->delete();
+                    Log::info('Atualizando proprietários', ['owners_count' => count($request->owners)]);
 
-                    foreach ($request->owners as $owner) {
-                        PropertyUser::create([
-                            'user_id' => $owner['user_id'] ?? $owner['id'],
-                            'type_ownership_id' => $owner['type_ownership_id'] ?? $owner['type_ownership'],
-                            'percentage' => $owner['percentage'] ?? $owner['percent'],
-                            'other' => $owner['observations'] ?? $owner['other'] ?? null,
-                            'property_id' => $property->id,
-                        ]);
+                    // Deletar proprietários existentes
+                    PropertyUser::where('property_id', $property->id)->delete();
+                    PropertyCoOwner::where('property_id', $property->id)->delete();
+
+                    foreach ($request->owners as $index => $owner) {
+                        try {
+                            // Nunca usar owner['id'] como user_id; considerar apenas user_id explícito ou owner.user.id
+                            $userId = $owner['user_id'] ?? ($owner['user']['id'] ?? null);
+                            $typeOwnershipId = $owner['type_ownership_id'] ?? $owner['type_ownership'] ?? null;
+                            $percentage = $owner['percentage'] ?? $owner['percent'] ?? 0;
+                            $percentage = is_numeric($percentage) ? (float) $percentage : 0.0;
+
+                            if ($userId === null || $userId === '') {
+                                // ✅ Co-proprietário (sem cadastro) → PropertyCoOwner
+                                $name = $owner['name'] ?? null;
+                                if (!$name) {
+                                    throw new \InvalidArgumentException('Nome do co-proprietário é obrigatório.');
+                                }
+
+                                if ($typeOwnershipId === null) {
+                                    $typeOwnershipId = 1; // Default: Proprietário
+                                }
+
+                                PropertyCoOwner::create([
+                                    'property_id' => $property->id,
+                                    'name' => $name,
+                                    'cpf_cnpj' => $owner['cpf_cnpj'] ?? null,
+                                    'percentage' => $percentage,
+                                    'type_ownership_id' => $typeOwnershipId,
+                                    'observations' => $owner['observations'] ?? $owner['other'] ?? null,
+                                ]);
+
+                                Log::info('PropertyCoOwner atualizado', ['index' => $index, 'name' => $name]);
+                            } else {
+                                // ✅ Proprietário registrado → PropertyUser
+                                if ($typeOwnershipId === null) {
+                                    $typeOwnershipId = 1;
+                                }
+
+                                PropertyUser::create([
+                                    'owner_id' => $userId,
+                                    'user_id' => $userId,
+                                    'type_ownership_id' => $typeOwnershipId,
+                                    'percentage' => $percentage,
+                                    'other' => $owner['observations'] ?? $owner['other'] ?? null,
+                                    'property_id' => $property->id,
+                                ]);
+
+                                Log::info('PropertyUser atualizado', ['index' => $index, 'user_id' => $userId]);
+                            }
+                        } catch (\Exception $e) {
+                            Log::error("Erro ao atualizar proprietário {$index}", [
+                                'error' => $e->getMessage(),
+                                'owner_data' => $owner
+                            ]);
+                            throw $e;
+                        }
                     }
                 }
 
-                // ✅ CORREÇÃO: Atualizar documentos (APENAS ADICIONAR NOVOS)
+                // ✅ Atualizar documentos (APENAS ADICIONAR NOVOS)
                 if ($request->has('documents') && is_array($request->documents) && !empty($request->documents)) {
                     Log::info('Adicionando novos documentos', ['count' => count($request->documents)]);
 
                     foreach ($request->documents as $document) {
-                        // Apenas processa documentos com file (novos documentos)
                         if (isset($document['file']) && !empty($document['file'])) {
                             try {
-                                // Verifica se já existe um documento com o mesmo nome
                                 $existingDoc = PropertyDocument::where('property_id', $property->id)
                                     ->where('file_name', $document['file_name'])
                                     ->first();
@@ -523,7 +725,7 @@ class PropertyController extends Controller
                                         'name' => $document['name'],
                                         'date' => ($document['date'] === "Sem Data" || empty($document['date'])) ? null : $document['date'],
                                         'show' => $document['show'] ?? true,
-                                        'file' => $normalized, // Atualiza com Base64 normalizado
+                                        'file' => $normalized,
                                         'file_name' => $document['file_name'],
                                     ]);
                                     Log::info('Documento atualizado', ['file_name' => $document['file_name']]);
@@ -534,7 +736,7 @@ class PropertyController extends Controller
                                         'name' => $document['name'],
                                         'date' => ($document['date'] === "Sem Data" || empty($document['date'])) ? null : $document['date'],
                                         'show' => $document['show'] ?? true,
-                                        'file' => $normalized, // Salvar Base64 normalizado
+                                        'file' => $normalized,
                                         'file_name' => $document['file_name'],
                                         'property_id' => $property->id,
                                     ]);
@@ -542,13 +744,12 @@ class PropertyController extends Controller
                                 }
                             } catch (\Exception $e) {
                                 Log::error("Erro ao processar documento: " . $e->getMessage());
-                                // Continua com os outros documentos
                             }
                         }
                     }
                 }
 
-                // ✅ NOVA FUNCIONALIDADE: Exclusão explícita de documentos
+                // ✅ Exclusão explícita de documentos
                 if ($request->has('documents_to_delete') && is_array($request->documents_to_delete)) {
                     foreach ($request->documents_to_delete as $documentId) {
                         PropertyDocument::where('id', $documentId)
@@ -576,13 +777,18 @@ class PropertyController extends Controller
      */
     private function canEditProperty($user, $property)
     {
+        if ($user instanceof \App\Models\User) {
+            if (!$user->relationLoaded('profiles')) {
+                $user->load('profiles');
+            }
+        }
         Log::info('=== canEditProperty - INÍCIO ===', [
             'user_id' => $user->id,
-            'user_profiles' => $user->profiles->pluck('slug')->toArray(),
+            'user_profiles' => ($user instanceof \App\Models\User) ? $user->profiles->pluck('slug')->toArray() : [],
             'property_id' => $property->id
         ]);
 
-        if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
+    if ($user instanceof \App\Models\User && $user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
             // Proprietário puro: verifica se é dono da propriedade
             $isOwner = PropertyUser::where('property_id', $property->id)
                 ->where('user_id', $user->id)
@@ -599,7 +805,7 @@ class PropertyController extends Controller
             return $isOwner;
         }
 
-        if ($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
+    if ($user instanceof \App\Models\User && $user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
             // Prestador puro: verifica autorização
             $canEdit = DB::table('authorizations')
                 ->where('service_provider_id', $user->id)
@@ -616,7 +822,7 @@ class PropertyController extends Controller
             return $canEdit;
         }
 
-        if ($user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
+    if ($user instanceof \App\Models\User && $user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
             // Proprietário/Prestador: verifica primeiro se é proprietário
             $isOwner = PropertyUser::where('property_id', $property->id)
                 ->where('user_id', $user->id)
@@ -649,57 +855,6 @@ class PropertyController extends Controller
     }
 
     /**
-     * ✅ CORREÇÃO: validateOwnerPermissions melhorada
-     */
-    // private function validateOwnerPermissions($currentUser, array $owners)
-    // {
-    //     if (empty($owners)) return;
-
-    //     Log::info('=== validateOwnerPermissions ===', [
-    //         'user_profile' => $currentUser->profile_id,
-    //         'owners_count' => count($owners)
-    //     ]);
-
-    //     // ✅ CORREÇÃO: Proprietário puro (perfil 1) só pode adicionar a si mesmo
-    //     if ($currentUser->profile_id === 1) {
-    //         foreach ($owners as $owner) {
-    //             $userId = $owner['user_id'] ?? $owner['id'];
-    //             if ($userId != $currentUser->id) {
-    //                 Log::error('Proprietário tentando adicionar outro usuário:', [
-    //                     'owner_id' => $userId,
-    //                     'current_user_id' => $currentUser->id
-    //                 ]);
-    //                 throw new \Exception(
-    //                     "Proprietários só podem adicionar a si mesmos como proprietário."
-    //                 );
-    //             }
-    //         }
-    //         return;
-    //     }
-
-    //     // Para perfis 2 e 3, verifica autorizações
-    //     $availableUsers = collect($this->getAvailableUsers($currentUser));
-    //     $availableUserIds = $availableUsers->pluck('id')->toArray();
-
-    //     Log::info('Usuários disponíveis para este perfil:', [
-    //         'available_user_ids' => $availableUserIds
-    //     ]);
-
-    //     foreach ($owners as $owner) {
-    //         $userId = $owner['user_id'] ?? $owner['id'];
-    //         if (!in_array($userId, $availableUserIds)) {
-    //             Log::error('Usuário não autorizado:', [
-    //                 'user_id' => $userId,
-    //                 'available_ids' => $availableUserIds
-    //             ]);
-    //             throw new \Exception(
-    //                 "Você não tem permissão para adicionar o usuário ID {$userId} como proprietário."
-    //             );
-    //         }
-    //     }
-    // }
-
-    /**
      * Remove the specified resource from storage.
      */
     public function destroy($property)
@@ -719,11 +874,16 @@ class PropertyController extends Controller
     private function getAvailableUsers($currentUser)
     {
         // Proprietário puro: só ele mesmo
-        if ($currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador')) {
+        if ($currentUser instanceof \App\Models\User) {
+            if (!$currentUser->relationLoaded('profiles')) {
+                $currentUser->load('profiles');
+            }
+        }
+        if ($currentUser instanceof \App\Models\User && $currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador')) {
             return [ $this->formatUser($currentUser) ];
         }
         // Prestador puro: apenas autorizados
-        if ($currentUser->hasProfile('prestador') && !$currentUser->hasProfile('proprietario')) {
+    if ($currentUser instanceof \App\Models\User && $currentUser->hasProfile('prestador') && !$currentUser->hasProfile('proprietario')) {
             $authorizedOwnerIds = DB::table('authorizations')
                 ->where('service_provider_id', $currentUser->id)
                 ->where('can_create_properties', 1)
@@ -735,7 +895,7 @@ class PropertyController extends Controller
                 ->toArray();
         }
         // Proprietário/Prestador: ele mesmo + autorizados
-        if ($currentUser->hasProfile('proprietario') && $currentUser->hasProfile('prestador')) {
+    if ($currentUser instanceof \App\Models\User && $currentUser->hasProfile('proprietario') && $currentUser->hasProfile('prestador')) {
             $authorizedOwnerIds = DB::table('authorizations')
                 ->where('service_provider_id', $currentUser->id)
                 ->where('can_create_properties', 1)
@@ -756,7 +916,12 @@ class PropertyController extends Controller
      */
     private function getUserAuthorizations($currentUser)
     {
-        if ($currentUser->hasProfile('prestador')) {
+        if ($currentUser instanceof \App\Models\User) {
+            if (!$currentUser->relationLoaded('profiles')) {
+                $currentUser->load('profiles');
+            }
+        }
+        if ($currentUser instanceof \App\Models\User && $currentUser->hasProfile('prestador')) {
             // Usando query manual para evitar problemas com relacionamentos
             $authorizations = DB::table('authorizations')
                 ->join('users', 'users.id', '=', 'authorizations.owner_id')
@@ -769,11 +934,13 @@ class PropertyController extends Controller
                     'authorizations.can_create_properties',
                     'users.id as user_id',
                     'users.name as user_name',
-                    'users.cpf_cnpj as user_cpf_cnpj',
-                    'users.profile_id as user_profile_id'
+                    'users.cpf_cnpj as user_cpf_cnpj'
                 )
                 ->get()
                 ->map(function ($auth) {
+                    // Busca o perfil via Eloquent
+                    $user = \App\Models\User::find($auth->user_id);
+                    $profile = $user ? $user->profiles->pluck('slug')->toArray() : [];
                     return [
                         'id' => $auth->id,
                         'owner_id' => $auth->owner_id,
@@ -783,7 +950,7 @@ class PropertyController extends Controller
                             'id' => $auth->user_id,
                             'name' => $auth->user_name,
                             'cpf_cnpj' => $auth->user_cpf_cnpj,
-                            'profile_id' => $auth->user_profile_id,
+                            'profiles' => $profile,
                         ]
                     ];
                 })
@@ -802,29 +969,42 @@ class PropertyController extends Controller
     {
         if (empty($owners)) return;
 
+        if ($currentUser instanceof \App\Models\User) {
+            if (!$currentUser->relationLoaded('profiles')) {
+                $currentUser->load('profiles');
+            }
+        }
+        
         Log::info('=== validateOwnerPermissions ===', [
-            'user_profiles' => $currentUser->profiles->pluck('slug')->toArray(),
+            'user_profiles' => ($currentUser instanceof \App\Models\User) ? $currentUser->profiles->pluck('slug')->toArray() : [],
             'owners_count' => count($owners)
         ]);
 
         // ✅ CORREÇÃO: Proprietário puro só pode adicionar a si mesmo
-        if ($currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador')) {
+        if ($currentUser instanceof \App\Models\User && $currentUser->hasProfile('proprietario') && !$currentUser->hasProfile('prestador')) {
             foreach ($owners as $owner) {
-                $userId = $owner['user_id'] ?? $owner['id'];
+                $userId = $owner['user_id'] ?? $owner['id'] ?? null;
+                
+                // ✅ Ignora co-proprietários (sem user_id) na validação
+                if ($userId === null || $userId === '') {
+                    Log::info('Co-proprietário detectado - pulando validação', ['name' => $owner['name'] ?? 'sem nome']);
+                    continue;
+                }
+                
                 if ($userId != $currentUser->id) {
                     Log::error('Proprietário tentando adicionar outro usuário:', [
                         'owner_id' => $userId,
                         'current_user_id' => $currentUser->id
                     ]);
                     throw new \Exception(
-                        "Proprietários só podem adicionar a si mesmos como proprietário."
+                        "Proprietários só podem adicionar a si mesmos como proprietário registrado."
                     );
                 }
             }
             return;
         }
 
-        // Para prestadores, verifica autorizações
+        // Para prestadores, verifica autorizações (apenas para proprietários registrados)
         $availableUsers = collect($this->getAvailableUsers($currentUser));
         $availableUserIds = $availableUsers->pluck('id')->toArray();
 
@@ -833,7 +1013,14 @@ class PropertyController extends Controller
         ]);
 
         foreach ($owners as $owner) {
-            $userId = $owner['user_id'] ?? $owner['id'];
+            $userId = $owner['user_id'] ?? $owner['id'] ?? null;
+            
+            // ✅ Ignora co-proprietários (sem user_id) na validação
+            if ($userId === null || $userId === '') {
+                Log::info('Co-proprietário detectado - pulando validação', ['name' => $owner['name'] ?? 'sem nome']);
+                continue;
+            }
+            
             if (!in_array($userId, $availableUserIds)) {
                 Log::error('Usuário não autorizado:', [
                     'user_id' => $userId,
@@ -871,10 +1058,12 @@ class PropertyController extends Controller
             }
         }
 
-        // Verifica duplicatas
-        $userIds = array_map(function($owner) {
-            return $owner['user_id'] ?? $owner['id'];
-        }, $owners);
+        // Verifica duplicatas APENAS entre usuários cadastrados (ignora co-proprietários sem user_id)
+        $userIds = array_values(array_filter(array_map(function($owner) {
+            return $owner['user_id'] ?? $owner['id'] ?? null;
+        }, $owners), function ($id) {
+            return !is_null($id) && $id !== '';
+        }));
 
         if (count($userIds) !== count(array_unique($userIds))) {
             throw new \Exception("Não é possível adicionar o mesmo usuário como proprietário mais de uma vez.");
@@ -890,29 +1079,27 @@ class PropertyController extends Controller
             return $currentUser->id;
         }
 
-        // Procura proprietário com 100%
+        // Procura proprietário (tipo 1) com 100% que tenha user_id válido (ignora co-proprietários)
         foreach ($owners as $owner) {
-            $percentage = floatval($owner['percentage'] ?? $owner['percent']);
-            $typeId = $owner['type_ownership_id'] ?? $owner['type_ownership'];
+            $percentage = floatval($owner['percentage'] ?? $owner['percent'] ?? 0);
+            $typeId = $owner['type_ownership_id'] ?? $owner['type_ownership'] ?? null;
+            $uid = $owner['user_id'] ?? $owner['id'] ?? null;
 
-            if ($typeId == 1 && $percentage == 100) {
-                return $owner['user_id'] ?? $owner['id'];
+            if ($typeId == 1 && $percentage == 100 && $uid) {
+                return $uid;
             }
         }
 
-        // Se não há proprietário com 100%, pega o primeiro proprietário
+        // Senão, pega o primeiro proprietário (tipo 1) que tenha user_id válido
         foreach ($owners as $owner) {
-            $typeId = $owner['type_ownership_id'] ?? $owner['type_ownership'];
-            if ($typeId == 1) {
-                return $owner['user_id'] ?? $owner['id'];
+            $typeId = $owner['type_ownership_id'] ?? $owner['type_ownership'] ?? null;
+            $uid = $owner['user_id'] ?? $owner['id'] ?? null;
+            if ($typeId == 1 && $uid) {
+                return $uid;
             }
         }
 
-        // Fallback: primeiro usuário da lista
-        if (!empty($owners)) {
-            return $owners[0]['user_id'] ?? $owners[0]['id'];
-        }
-
+        // Fallback: usuário autenticado
         return $currentUser->id;
     }
 
@@ -966,7 +1153,7 @@ class PropertyController extends Controller
                 // Validação leve: tenta olhar por <kml> nos primeiros bytes decodificados (até 2KB)
                 $sample = substr($decodedStrict, 0, 2048);
                 if (stripos($sample, '<kml') === false) {
-                    \Log::warning('KML salvo sem tag <kml> na amostra. Verifique a origem do arquivo.', ['file_name' => $fileName]);
+                    Log::warning('KML salvo sem tag <kml> na amostra. Verifique a origem do arquivo.', ['file_name' => $fileName]);
                 }
             }
             return $clean;
@@ -988,7 +1175,7 @@ class PropertyController extends Controller
             if ($ext === 'kml') {
                 $sample = is_string($decoded) ? substr($decoded, 0, 2048) : '';
                 if ($sample && stripos($sample, '<kml') === false) {
-                    \Log::warning('KML salvo sem tag <kml> (modo texto/base64 flexível).', ['file_name' => $fileName]);
+                    Log::warning('KML salvo sem tag <kml> (modo texto/base64 flexível).', ['file_name' => $fileName]);
                 }
             }
 
@@ -1012,9 +1199,9 @@ class PropertyController extends Controller
         $user = Auth::user();
         // Determina o tipo de erro baseado no contexto
         if ($type === 'general' && $user) {
-            if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
+            if ($user instanceof \App\Models\User && $user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
                 $type = 'property_access';
-            } elseif ($user->hasProfile('prestador')) {
+            } elseif ($user instanceof \App\Models\User && $user->hasProfile('prestador')) {
                 $type = 'service_provider';
             }
         }
@@ -1068,86 +1255,9 @@ class PropertyController extends Controller
         return redirect()->back()->with('success', 'Visibilidade do documento atualizada com sucesso.');
     }
 
-    public function updateDocumentShow(Request $request, string $documentId)
-    {
-        $request->validate([
-            'show' => 'required|boolean',
-        ]);
+    // Duplicate updateDocumentShow method removed to fix redeclaration error.
 
-        $document = PropertyDocument::findOrFail($documentId);
-        $document->update(['show' => $request->show]);
-
-        return redirect()->back()->with('success', 'Document visibility updated successfully.');
-    }
-
-    public function clientShow(string $id)
-    {
-        $user = Auth::user();
-
-        // Pegue apenas UMA propriedade específica
-        $property = Property::whereHas('owners', function ($query) use ($id) {
-            $query->where('user_id', $id);
-        })->with(['owners.typeOwnership', 'documents'])->first();
-
-        if (!$property) {
-            return $this->returnUnauthorizedError(
-                'Propriedade não encontrada para este cliente.',
-                'property_access'
-            );
-        }
-
-        $typeOwnership = TypeOwnership::all();
-
-        $canView = false;
-        $canCreate = false;
-
-        if ($user->hasProfile('proprietario')) {
-            $canView = PropertyUser::where('user_id', $id)
-                ->where('property_id', $property->id)
-                ->exists();
-        } else {
-            $canView = DB::table('authorizations')
-                ->where('service_provider_id', $user->id) // CORREÇÃO: Adicionar esta linha que estava faltando
-                ->where('can_view_documents', 1)
-                ->whereExists(function ($query) use ($property) {
-                    $query->select(DB::raw(1))
-                        ->from('property_user')
-                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                        ->where('property_user.property_id', $property->id);
-                })
-                ->exists();
-
-            $canCreate = $user->hasProfile('prestador') &&
-                DB::table('authorizations')
-                ->where('service_provider_id', $user->id)
-                ->where('can_create_properties', 1)
-                ->whereExists(function ($query) use ($property) { // CORREÇÃO: Usar $property ao invés de $id
-                    $query->select(DB::raw(1))
-                        ->from('property_user')
-                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
-                        ->where('property_user.property_id', $property->id);
-                })
-                ->exists();
-        }
-
-        if (!$canView && !$canCreate) {
-            return $this->returnUnauthorizedError(
-                'Você não tem permissão para visualizar esta propriedade do cliente.',
-                'service_provider'
-            );
-        }
-
-        return Inertia::render('Properties/ShowProperty', [
-            'property' => $property,
-            'documents' => $property->documents,  // CORREÇÃO: Remover flatMap
-            'owners' => $property->owners,        // CORREÇÃO: Remover flatMap
-            'success' => session('success'),
-            'isServiceProvider' => $user->hasProfile('prestador') && !$user->hasProfile('proprietario'),
-            'typeOwnership' => $typeOwnership,
-            'canView' => $canView,
-            'canCreate' => $canCreate,
-        ]);
-    }
+    // Duplicate clientShow method removed to fix redeclaration error.
 
     public function viewDocument($id)
     {
@@ -1194,7 +1304,7 @@ class PropertyController extends Controller
         $user = Auth::user();
 
         // Apenas prestadores de serviço podem acessar propriedades de clientes
-        if (!$user->hasProfile('prestador')) {
+    if (!($user instanceof \App\Models\User) || !$user->hasProfile('prestador')) {
             return $this->returnUnauthorizedError(
                 'Apenas prestadores de serviço podem acessar propriedades de clientes.',
                 'service_provider'
@@ -1252,17 +1362,17 @@ class PropertyController extends Controller
         }
 
         // Verificar baseado no perfil do usuário
-        if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
+    if ($user instanceof \App\Models\User && $user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
             // Proprietário puro
             return $this->isOwnerOfProperty($user, $property);
         }
 
-        if ($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
+    if ($user instanceof \App\Models\User && $user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
             // Prestador puro
             return $this->hasServiceProviderAccess($user, $property);
         }
 
-        if ($user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
+    if ($user instanceof \App\Models\User && $user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
             // Proprietário/Prestador: verifica ambos
             return $this->isOwnerOfProperty($user, $property) ||
                     $this->hasServiceProviderAccess($user, $property);
@@ -1286,7 +1396,7 @@ class PropertyController extends Controller
      */
     private function hasServiceProviderAccess($user, $property)
     {
-        return DB::table('authorizations')
+    return DB::table('authorizations')
             ->where('service_provider_id', $user->id)
             ->where('can_view_documents', 1)
             ->whereExists(function ($query) use ($property) {
@@ -1447,7 +1557,6 @@ class PropertyController extends Controller
      */
     public function getKmlDocument($id)
     {
-        // Redirecionar para o método principal
         return $this->serveKml($id);
     }
 
@@ -1458,5 +1567,84 @@ class PropertyController extends Controller
     {
         return $this->viewDocument($id);
     }
+
+    /**
+     * Mostra uma propriedade específica de um cliente
+     */
+    public function clientShow(string $id)
+    {
+        $user = Auth::user();
+
+        // Pegue apenas UMA propriedade específica
+        $property = Property::whereHas('owners', function ($query) use ($id) {
+            $query->where('user_id', $id);
+        })->with([
+            'owners.typeOwnership', 
+            'coOwners.typeOwnership', // ✅ NOVO: Incluir co-proprietários
+            'documents'
+        ])->first();
+
+        if (!$property) {
+            return $this->returnUnauthorizedError(
+                'Propriedade não encontrada para este cliente.',
+                'property_access'
+            );
+        }
+
+        $typeOwnership = TypeOwnership::all();
+
+        $canView = false;
+        $canCreate = false;
+
+        if ($user instanceof \App\Models\User && $user->hasProfile('proprietario')) {
+            $canView = PropertyUser::where('user_id', $id)
+                ->where('property_id', $property->id)
+                ->exists();
+        } else {
+            $canView = DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('can_view_documents', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
+
+            $canCreate = ($user instanceof \App\Models\User && $user->hasProfile('prestador')) &&
+                DB::table('authorizations')
+                ->where('service_provider_id', $user->id)
+                ->where('can_create_properties', 1)
+                ->whereExists(function ($query) use ($property) {
+                    $query->select(DB::raw(1))
+                        ->from('property_user')
+                        ->whereColumn('property_user.user_id', 'authorizations.owner_id')
+                        ->where('property_user.property_id', $property->id);
+                })
+                ->exists();
+        }
+
+        if (!$canView && !$canCreate) {
+            return $this->returnUnauthorizedError(
+                'Você não tem permissão para visualizar esta propriedade do cliente.',
+                'service_provider'
+            );
+        }
+
+        return Inertia::render('Properties/ShowProperty', [
+            'property' => $property,
+            'documents' => $property->documents,
+            'owners' => $property->owners,
+            'coOwners' => $property->coOwners, // ✅ NOVO: Incluir co-proprietários
+            'success' => session('success'),
+            'isServiceProvider' => ($user instanceof \App\Models\User && $user->hasProfile('prestador') && !$user->hasProfile('proprietario')),
+            'typeOwnership' => $typeOwnership,
+            'canView' => $canView,
+            'canCreate' => $canCreate,
+        ]);
+    }
+
+    // Duplicate clientsProperty method removed to fix redeclaration error.
 
 }

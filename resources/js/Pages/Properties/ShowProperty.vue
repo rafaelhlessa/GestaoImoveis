@@ -10,6 +10,8 @@ import 'tippy.js/dist/tippy.css';
 import KmlMap from '@/Components/KmlMap.vue';
 import PropertyEvaluationModal from '@/Components/PropertyEvaluationModal.vue';
 import EvaluationsListModal from '@/Components/EvaluationsListModal.vue';
+import VeterinaryDeclarationModal from '@/Components/VeterinaryDeclarationModal.vue';
+import VeterinaryDeclarationListModal from '@/Components/VeterinaryDeclarationListModal.vue';
 
 const { auth } = usePage().props;
 
@@ -50,6 +52,8 @@ const kmlError = ref(null);
 const showModalDocumentShow = ref(false);
 const showEvaluationModal = ref(false);
 const showEvaluationsListModal = ref(false);
+const showVeterinaryModal = ref(false);
+const showVeterinaryListModal = ref(false);
 
 // ✅ CORRIGIDO: Computed para verificar se é proprietário DIRETO da propriedade
 const isDirectOwner = computed(() => {
@@ -313,6 +317,15 @@ const showDocumentShowModal = () => {
     showModalDocumentShow.value = true;
 };
 
+// Vet decl.
+function openVeterinaryDeclaration() {
+    showVeterinaryModal.value = true;
+}
+
+function openVeterinaryList() {
+    showVeterinaryListModal.value = true;
+}
+
 const documentShow = (id) => {
     router.patch(route('property.updateDocument', id), {
         show: !props.documents.find(doc => doc.id === id).show
@@ -339,11 +352,20 @@ const formatCurrency = (value) => {
     }).format(value);
 };
 
-// Função para obter nome do tipo de propriedade
-const getOwnershipTypeName = (typeOwnershipId) => {
-    if (!props.typeOwnership) return 'Tipo desconhecido';
-    const type = props.typeOwnership.find(type => type.id === typeOwnershipId);
-    return type ? type.name : 'Tipo desconhecido';
+// Extrai o tipo de propriedade do owner (pivot ou campos diretos)
+const getOwnerTypeId = (owner) => {
+    if (!owner) return null;
+    return owner?.pivot?.type_ownership_id ?? owner?.type_ownership_id ?? owner?.type_ownership?.id ?? null;
+};
+
+// Função para obter nome do tipo de propriedade (com coerção de tipos)
+const getOwnershipTypeName = (rawTypeOwnershipId) => {
+    const id = rawTypeOwnershipId !== undefined && rawTypeOwnershipId !== null ? Number(rawTypeOwnershipId) : null;
+    if (!Array.isArray(props.typeOwnership) || props.typeOwnership.length === 0 || id === null || Number.isNaN(id)) {
+        return 'Tipo desconhecido';
+    }
+    const type = props.typeOwnership.find(t => Number(t.id) === id);
+    return type?.name ?? 'Tipo desconhecido';
 };
 </script>
 
@@ -404,8 +426,11 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                         </div>
 
                                         <div class="mt-3">
-                                            <p class="text-1xl tracking-tight text-gray-900">{{ props.property.district }}</p>
-                                            <p class="text-1xl tracking-tight text-gray-900">{{ props.property.locality }}</p>
+                                            <p v-if="props.property.type_property === 1" class="text-1xl tracking-tight text-gray-900">Distrito: {{ props.property.district }}</p>
+                                            <p v-else class="text-1xl tracking-tight text-gray-900">Subdistrito: {{ props.property.district }}</p>
+
+                                            <p v-if="props.property.type_property === 1"class="text-1xl tracking-tight text-gray-900">Bairro: {{ props.property.locality }}</p>
+                                            <p v-else class="text-1xl tracking-tight text-gray-900">Localidade: {{ props.property.locality }}</p>
                                         </div>
 
                                         <!-- Estatísticas de Avaliações (se pode ver avaliações) -->
@@ -470,6 +495,33 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                     medindo {{ props.property.area }} {{ props.property.unit }}.
                                                 </p>
                                             </div>
+                                            <div class="mt-4 flex space-x-2">
+                                                <div class="flex flex-col sm:flex-row gap-4 justify-end">
+                                                    <button
+                                                        v-if="props.property.type_property === 2"
+                                                        @click="openVeterinaryList"
+                                                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                                                        title="Listar declarações existentes e gerar PDF"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                                        </svg>
+                                                        Lista de declarações
+                                                    </button>
+                                                    <button
+                                                        v-if="props.property.type_property === 2"
+                                                        @click="openVeterinaryDeclaration"
+                                                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                                                        title="Gerar declaração da inspetoria veterinária"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                                        </svg>
+                                                        Declaração da inspetoria veterinária
+                                                    </button>
+                                                </div>
+                                                
+                                            </div>
                                             <div v-if="props.property.about">
                                                 <p class="mt-4 text-base text-gray-700">{{ props.property.about }}</p>
                                             </div>
@@ -488,7 +540,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                         <div class="mt-4">
                                             <div v-if="owners && owners.length > 0" class="space-y-2">
                                                 <div v-for="owner in owners" :key="owner.id" class="text-base text-gray-700">
-                                                    <h3>{{ owner.name }} - {{ getOwnershipTypeName(owner.pivot?.type_ownership_id) }}</h3>
+                                                    <h3>{{ owner.name }} - {{ getOwnershipTypeName(getOwnerTypeId(owner)) }}</h3>
                                                 </div>
                                             </div>
                                             <div v-else class="text-base text-gray-500">
@@ -567,7 +619,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
                                                                                                 <div class="mb-4">
                                                                                                     <h3 v-if="detail.show === 0">Tornar o arquivo visível para prestadores de serviço?</h3>
                                                                                                     <h3 v-else>Ocultar o arquivo dos prestadores de serviço?</h3>
-                                                                                                    <p class="text-sm text-gray-600 mt-2">
+                                                                                                    <p class="text-sm text-gray-600 mt-2 break-words whitespace-normal overflow-wrap">
                                                                                                         <strong>Nota:</strong> Como proprietário, você sempre poderá visualizar todos os documentos da sua propriedade, independente desta configuração.
                                                                                                     </p>
                                                                                                 </div>
@@ -614,7 +666,7 @@ const getOwnershipTypeName = (typeOwnershipId) => {
 
                                                 <!-- Botão de Ver Avaliações (Proprietários e Prestadores autorizados) -->
                                                 <button
-                                                    v-if="!auth.user.profiles || !auth.user.profiles.includes('prestador')"
+                                                    v-if="canViewEvaluations"
                                                     @click="showEvaluationPropriety(props.property.id)"
                                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                                                     :title="`Ver ${(props.evaluations && Array.isArray(props.evaluations)) ? props.evaluations.length : 0} avaliações desta propriedade`"
@@ -737,8 +789,25 @@ const getOwnershipTypeName = (typeOwnershipId) => {
             :show="showEvaluationsListModal"
             :property="props.property"
             :evaluations="props.evaluations || []"
+            :owners="props.owners || []"
             @close="showEvaluationsListModal = false"
             @open-evaluation-modal="openEvaluationFromList"
+        />
+
+        <!-- Modal de Declaração da Inspetoria Veterinária -->
+        <VeterinaryDeclarationModal
+            :show="showVeterinaryModal"
+            :property="props.property"
+            @close="showVeterinaryModal = false"
+            @success="() => router.reload({ only: ['property'] })"
+        />
+
+        <!-- Modal de Lista de Declarações -->
+        <VeterinaryDeclarationListModal
+            :show="showVeterinaryListModal"
+            :property="props.property"
+            @close="showVeterinaryListModal = false"
+            @new="() => { showVeterinaryListModal = false; showVeterinaryModal = true; }"
         />
 
     </AuthenticatedLayout>

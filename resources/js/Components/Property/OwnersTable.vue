@@ -1,7 +1,7 @@
 <template>
   <div class="mt-6 mb-12 grid grid-cols-1 gap-4">
     <!-- Botão Adicionar -->
-    <div class="flex justify-start">
+    <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
       <button 
         @click="$emit('add-owner')"
         type="button"
@@ -12,6 +12,16 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
         </svg>
       </button>
+      <button 
+          @click="$emit('add-co-owner')"
+          type="button"
+          class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 flex items-center justify-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+          </svg>
+          Adicionar Co-proprietário
+        </button>
     </div>
 
     <!-- Resumo dos Percentuais -->
@@ -23,19 +33,19 @@
             <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z" />
           </svg>
           <span class="text-sm font-medium text-blue-900">
-            Total de Propriedade: {{ totalPercentage.toFixed(2) }}%
+            Total de Propriedade: {{ formatPercent(totalPercentage) }}%
           </span>
         </div>
         <div :class="[
           'px-2 py-1 rounded-full text-xs font-medium',
-          totalPercentage === 100 
+          isComplete 
             ? 'bg-green-100 text-green-800' 
             : totalPercentage > 100 
               ? 'bg-red-100 text-red-800'
               : 'bg-yellow-100 text-yellow-800'
         ]">
           {{ 
-            totalPercentage === 100 
+            isComplete 
               ? 'Completo' 
               : totalPercentage > 100 
                 ? 'Excedeu 100%'
@@ -71,7 +81,7 @@
               {{ applyCpfCnpjMask(getOwnerCpf(owner)) }}
             </td>
             <td class="px-6 py-4 text-gray-900 dark:text-white">
-              <span class="font-medium">{{ getOwnerPercentage(owner) }}%</span>
+              <span class="font-medium">{{ formatPercent(getOwnerPercentage(owner)) }}%</span>
             </td>
             <td class="px-6 py-4 text-gray-900 dark:text-white">
               <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
@@ -124,7 +134,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['add-owner', 'remove-owner'])
+defineEmits(['add-owner', 'add-co-owner', 'remove-owner'])
 
 // Computed para calcular o percentual total
 const totalPercentage = computed(() => {
@@ -132,6 +142,16 @@ const totalPercentage = computed(() => {
     return total + (parseFloat(getOwnerPercentage(owner)) || 0)
   }, 0)
 })
+
+// Considera variações de arredondamento (ex.: 99.9999 ≈ 100)
+const isComplete = computed(() => Math.abs(totalPercentage.value - 100) < 0.005)
+
+// Formata percentual: sem casas quando inteiro, caso contrário arredonda para 2 casas
+const formatPercent = (value) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '0'
+  return Number.isInteger(num) ? String(num) : num.toFixed(2).replace(/\.00$/, '')
+}
 
 // Utilitários para lidar com diferentes estruturas de dados
 const getOwnerId = (owner, index) => {

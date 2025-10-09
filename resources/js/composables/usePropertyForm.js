@@ -93,6 +93,7 @@ export function usePropertyForm(props = {}) {
   // ESTADO DOS MODAIS
   // ====================================
   const showModalOwner = ref(false)
+  const showModalCoOwner = ref(false)
   const showModalDocument = ref(false)
 
   // ====================================
@@ -824,14 +825,32 @@ const debugDataStructure = () => {
 
     if (!validateForm()) return
 
-    // Prepara dados dos proprietários
-    const formattedOwners = owners.value.map(owner => ({
-      id: isEditMode.value ? (owner.id || null) : null,
-      user_id: owner.user_id || owner.user?.id,
-      type_ownership_id: owner.type_ownership_id || owner.type_ownership?.id,
-      percentage: parseFloat(owner.percentage || owner.percent),
-      observations: owner.observations || null
-    }))
+    // Prepara dados dos proprietários (inclui nome/cpf_cnpj para co-proprietários)
+    const formattedOwners = owners.value.map(owner => {
+      const userId = owner.user_id || owner.user?.id || null
+      const typeOwnershipId = owner.type_ownership_id || owner.type_ownership?.id || null
+      const rawPercent = owner.percentage ?? owner.percent
+      const percentage = rawPercent !== undefined && rawPercent !== null ? parseFloat(rawPercent) : null
+      const isCoOwner = !userId
+
+      const base = {
+        id: isEditMode.value ? (owner.id || null) : null,
+        user_id: userId,
+        type_ownership_id: typeOwnershipId,
+        percentage,
+        observations: owner.observations || null
+      }
+
+      if (isCoOwner) {
+        return {
+          ...base,
+          name: owner.name || owner.user?.name || '',
+          cpf_cnpj: owner.cpf_cnpj || owner.user?.cpf_cnpj || ''
+        }
+      }
+
+      return base
+    })
 
     // Prepara dados dos documentos - apenas documentos com file (novos documentos)
     const formattedDocuments = documents.value
@@ -844,12 +863,13 @@ const debugDataStructure = () => {
         file_name: doc.file_name
       }))
 
-    // Determina proprietário principal
-    const mainOwner = formattedOwners.find(owner => owner.percentage === 100) || formattedOwners[0]
+  // Determina proprietário principal (apenas usuários cadastrados)
+  const registeredOwners = formattedOwners.filter(o => !!o.user_id)
+  const mainOwner = registeredOwners.find(o => o.percentage === 100) || registeredOwners[0] || null
 
     // Atualiza formulário
     form.owners = formattedOwners
-    form.owner_id = mainOwner?.user_id || null
+  form.owner_id = mainOwner?.user_id || null
 
     // ✅ CORREÇÃO: Só inclui documents se houver documentos com file
     if (formattedDocuments.length > 0) {
@@ -1035,6 +1055,7 @@ const debugDataStructure = () => {
 
     // Modais
     showModalOwner,
+    showModalCoOwner,
     showModalDocument,
 
     // Cidades

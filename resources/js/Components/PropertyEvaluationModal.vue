@@ -266,6 +266,25 @@ export default {
       property_condition: '',
       garage_spaces: null,
       furniture_status: '',
+      // Residencial - novos campos
+      proximidade_servicos: '',
+      transporte: '',
+      seguranca: '',
+      terreno_topografia: '',
+      terreno_posicao: '',
+      construcao_padrao: '',
+      construcao_idade: null,
+      estado_reformas: '',
+      suites: null,
+      salas: null,
+      cozinha: '',
+      area_servico: '',
+      external_quintal: false,
+      external_jardim: false,
+      external_piscina: false,
+      external_churrasqueira: false,
+      estado_instalacoes_eletricas: '',
+      estado_instalacoes_hidraulicas: '',
       // Comercial
       floors: null,
       office_rooms: null,
@@ -278,7 +297,10 @@ export default {
       farming_types: [],
       water_source: '',
       water_source_details: '',
-      observations: ''
+      observations: '',
+      // Rebanho (nova estrutura)
+      has_herd: null,
+      herds: []
     })
 
     // Auto-detectar tipo baseado na propriedade
@@ -318,6 +340,24 @@ export default {
         property_condition: '',
         garage_spaces: null,
         furniture_status: '',
+        proximidade_servicos: '',
+        transporte: '',
+        seguranca: '',
+        terreno_topografia: '',
+        terreno_posicao: '',
+        construcao_padrao: '',
+        construcao_idade: null,
+        estado_reformas: '',
+        suites: null,
+        salas: null,
+        cozinha: '',
+        area_servico: '',
+        external_quintal: false,
+        external_jardim: false,
+        external_piscina: false,
+        external_churrasqueira: false,
+        estado_instalacoes_eletricas: '',
+        estado_instalacoes_hidraulicas: '',
         floors: null,
         office_rooms: null,
         parking_spaces: null,
@@ -328,7 +368,10 @@ export default {
         farming_types: [],
         water_source: '',
         water_source_details: '',
-        observations: ''
+        observations: '',
+        // Rebanho (nova estrutura)
+        has_herd: null,
+        herds: []
       }
       errors.value = {}
     }
@@ -342,8 +385,126 @@ export default {
       errors.value = {}
 
       try {
+        // Monta objeto de detalhes conforme o tipo selecionado
+        const details = {}
+        // Comum a residenciais (casas, sobrados, apartamentos)
+        if (form.value.property_type === 'urbana') {
+          if (form.value.urban_subtype === 'residencial') {
+            details.category = 'residencial'
+            details.localizacao = {
+              bairro: props.property.district || null,
+              cidade: props.property.city || null,
+              proximidade_servicos: form.value.proximidade_servicos || null,
+              transporte: form.value.transporte || null,
+              seguranca: form.value.seguranca || null
+            }
+            details.terreno = {
+              metragem_total: form.value.total_area,
+              topografia: form.value.terreno_topografia || null,
+              posicao: form.value.terreno_posicao || null
+            }
+            details.construcao = {
+              metragem_construida: form.value.built_area,
+              padrao_construtivo: form.value.construcao_padrao || null,
+              idade_imovel: form.value.construcao_idade
+            }
+            details.distribuicao_interna = {
+              quartos: form.value.bedrooms,
+              suites: form.value.suites,
+              banheiros: form.value.bathrooms,
+              salas: form.value.salas,
+              cozinha: form.value.cozinha || null,
+              area_servico: form.value.area_servico || null
+            }
+            details.areas_externas = {
+              garagem: form.value.garage_spaces,
+              quintal: !!form.value.external_quintal,
+              jardim: !!form.value.external_jardim,
+              piscina: !!form.value.external_piscina,
+              churrasqueira: !!form.value.external_churrasqueira
+            }
+            details.estado_conservacao = {
+              reformas: form.value.estado_reformas || null,
+              acabamentos: form.value.property_condition,
+              instalacoes: {
+                eletricas: form.value.estado_instalacoes_eletricas || null,
+                hidraulicas: form.value.estado_instalacoes_hidraulicas || null
+              }
+            }
+          } else if (form.value.urban_subtype === 'comercial') {
+            // Sala comercial / prédio comercial (simplificado aqui)
+            details.category = 'comercial'
+            details.localizacao = {
+              regiao: props.property.city || null,
+              fluxo: null,
+              visibilidade: null
+            }
+            details.metragem = {
+              total: form.value.total_area
+            }
+            details.infraestrutura_predial = {
+              elevadores: null,
+              estacionamento: form.value.parking_spaces,
+              acessibilidade: null,
+              portaria: null
+            }
+            details.custos_fixos = {
+              condominio: null,
+              iptu: null,
+              energia: null,
+              agua: null
+            }
+            details.uso_permitido = null
+          }
+        } else if (form.value.property_type === 'rural') {
+          details.category = 'rural'
+          details.area_total = form.value.rural_total_area
+          details.georreferenciamento = null
+          details.solo_topografia = {
+            aptidao: null,
+            fertilidade: null,
+            drenagem: null
+          }
+          details.recursos_hidricos = {
+            fonte: form.value.water_source,
+            detalhes: form.value.water_source_details
+          }
+          details.infraestruturas = {
+            construcao: form.value.has_construction,
+            tipos_construcao: form.value.construction_types,
+            sede: null,
+            casas_empregados: null,
+            currais_silos_armazens: null
+          }
+          details.producao_existente = {
+            lavouras: form.value.farming_types,
+            criacao_animais: null,
+            benfeitorias: null
+          }
+          if (form.value.has_herd) {
+            const herds = Array.isArray(form.value.herds) ? form.value.herds : []
+            details.rebanho = herds.map(h => ({
+              especie: h.especie || null,
+              raca: h.raca || null,
+              faixas: (Array.isArray(h.faixas) ? h.faixas : []).map(f => ({
+                faixa_etaria: f.faixa_etaria || null,
+                quantidade_machos: f.quantidade_machos ?? null,
+                quantidade_femeas: f.quantidade_femeas ?? null,
+              }))
+            }))
+          } else {
+            details.rebanho = []
+          }
+          details.acessos = {
+            estradas: null,
+            distancia_centros: null,
+            transporte: null
+          }
+  }
+
+  const payload = { ...form.value, details }
         // Fazer requisição para salvar avaliação
-        await router.post(route('properties.evaluations.store', props.property.id), form.value, {
+        await router.post(route('properties.evaluations.store', props.property.id), payload, {
           onSuccess: () => {
             emit('success')
             closeModal()
@@ -377,20 +538,36 @@ export default {
       const fieldsToReset = [
         'rooms', 'bedrooms', 'bathrooms', 'built_area', 'total_area',
         'property_condition', 'garage_spaces', 'furniture_status',
+        'proximidade_servicos', 'transporte', 'seguranca',
+        'terreno_topografia', 'terreno_posicao',
+        'construcao_padrao', 'construcao_idade', 'estado_reformas',
+        'suites', 'salas', 'cozinha', 'area_servico',
+        'estado_instalacoes_eletricas', 'estado_instalacoes_hidraulicas',
         'floors', 'office_rooms', 'parking_spaces',
         'rural_total_area', 'has_construction', 'construction_types',
-        'has_farming', 'farming_types', 'water_source', 'water_source_details'
+        'has_farming', 'farming_types', 'water_source', 'water_source_details',
+        // Herd (nova estrutura)
+        'has_herd', 'herds'
       ]
 
       fieldsToReset.forEach(field => {
         if (Array.isArray(form.value[field])) {
           form.value[field] = []
         } else if (typeof form.value[field] === 'boolean') {
-          form.value[field] = null
+          form.value[field] = false
         } else {
           form.value[field] = typeof form.value[field] === 'number' ? null : ''
         }
       })
+
+  // Reset checkboxes explicitly if undefined
+      form.value.external_quintal = false
+      form.value.external_jardim = false
+      form.value.external_piscina = false
+      form.value.external_churrasqueira = false
+  // Herd explicit reset
+  form.value.has_herd = null
+  form.value.herds = []
     }
 
     return {

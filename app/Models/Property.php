@@ -94,4 +94,27 @@ class Property extends Model
     {
         return $this->evaluations()->min('valuation');
     }
+
+    /**
+     * Co-proprietários não cadastrados
+     */
+    public function coOwners()
+    {
+        return $this->hasMany(PropertyCoOwner::class);
+    }
+
+    // Accessor: derive a display name since there is no 'name' column
+    protected $appends = ['display_name'];
+
+    public function getDisplayNameAttribute(): string
+    {
+        // Prefer a user-provided nickname; fallback to address or "Propriedade #ID"
+        if (!empty($this->nickname)) {
+            return $this->nickname;
+        }
+        if (!empty($this->address)) {
+            return $this->address;
+        }
+        return 'Propriedade #' . ($this->id ?? '');
+    }
 }

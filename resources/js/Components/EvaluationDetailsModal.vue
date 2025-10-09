@@ -81,6 +81,21 @@
             <!-- Propriedade Residencial -->
             <div v-if="evaluation.property_type === 'urbana' && evaluation.urban_subtype === 'residencial'" class="mb-8">
               <h3 class="text-lg font-medium text-gray-900 mb-4">Detalhes Residenciais</h3>
+              <div v-if="evaluation.details && evaluation.details.localizacao" class="mb-4">
+                <h4 class="font-medium text-gray-900 mb-2">Localização</h4>
+                <div class="text-sm text-gray-700">
+                  <div v-if="evaluation.details.localizacao.proximidade_servicos">Proximidade: {{ evaluation.details.localizacao.proximidade_servicos }}</div>
+                  <div v-if="evaluation.details.localizacao.transporte">Transporte: {{ evaluation.details.localizacao.transporte }}</div>
+                  <div v-if="evaluation.details.localizacao.seguranca">Segurança: {{ evaluation.details.localizacao.seguranca }}</div>
+                </div>
+              </div>
+              <div v-if="evaluation.details && evaluation.details.terreno" class="mb-4">
+                <h4 class="font-medium text-gray-900 mb-2">Terreno</h4>
+                <div class="text-sm text-gray-700">
+                  <div v-if="evaluation.details.terreno.topografia">Topografia: {{ evaluation.details.terreno.topografia }}</div>
+                  <div v-if="evaluation.details.terreno.posicao">Posição: {{ evaluation.details.terreno.posicao }}</div>
+                </div>
+              </div>
               <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                   <div class="text-2xl font-bold text-gray-900">{{ evaluation.rooms || 0 }}</div>
@@ -168,6 +183,35 @@
 
                 <div>
                   <h4 class="font-medium text-gray-900 mb-2">Lavoura</h4>
+
+                    <div v-if="evaluation.details && evaluation.details.distribuicao_interna" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div v-if="evaluation.details.distribuicao_interna.suites">Suítes: <strong>{{ evaluation.details.distribuicao_interna.suites }}</strong></div>
+                      <div v-if="evaluation.details.distribuicao_interna.salas">Salas: <strong>{{ evaluation.details.distribuicao_interna.salas }}</strong></div>
+                      <div v-if="evaluation.details.distribuicao_interna.cozinha">Cozinha: <strong>{{ evaluation.details.distribuicao_interna.cozinha }}</strong></div>
+                      <div v-if="evaluation.details.distribuicao_interna.area_servico">Área de serviço: <strong>{{ evaluation.details.distribuicao_interna.area_servico }}</strong></div>
+                    </div>
+
+                    <div v-if="evaluation.details && evaluation.details.areas_externas" class="mt-4">
+                      <h4 class="font-medium text-gray-900 mb-1">Áreas Externas</h4>
+                      <div class="text-sm text-gray-700 grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div v-if="evaluation.details.areas_externas.quintal">Quintal</div>
+                        <div v-if="evaluation.details.areas_externas.jardim">Jardim</div>
+                        <div v-if="evaluation.details.areas_externas.piscina">Piscina</div>
+                        <div v-if="evaluation.details.areas_externas.churrasqueira">Churrasqueira</div>
+                      </div>
+                    </div>
+
+                    <div v-if="evaluation.details && evaluation.details.estado_conservacao" class="mt-4">
+                      <h4 class="font-medium text-gray-900 mb-1">Estado de Conservação</h4>
+                      <div class="text-sm text-gray-700">
+                        <div v-if="evaluation.details.estado_conservacao.reformas">Reformas: {{ evaluation.details.estado_conservacao.reformas }}</div>
+                        <div v-if="evaluation.details.estado_conservacao.instalacoes">
+                          Instalações: 
+                          <span v-if="evaluation.details.estado_conservacao.instalacoes.eletricas">Elétricas ({{ evaluation.details.estado_conservacao.instalacoes.eletricas }})</span>
+                          <span v-if="evaluation.details.estado_conservacao.instalacoes.hidraulicas"> • Hidráulicas ({{ evaluation.details.estado_conservacao.instalacoes.hidraulicas }})</span>
+                        </div>
+                      </div>
+                    </div>
                   <div v-if="evaluation.has_farming && evaluation.farming_types_text">
                     <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       Possui lavoura
@@ -191,6 +235,58 @@
                   </div>
                 </div>
               </div>
+
+              <div v-if="evaluation.details && evaluation.details.rebanho" class="mt-4">
+                <h4 class="font-medium text-gray-900 mb-2">Rebanho</h4>
+                <!-- Nova estrutura: lista de grupos -->
+                <template v-if="Array.isArray(evaluation.details.rebanho)">
+                  <div v-for="(h, idx) in evaluation.details.rebanho" :key="idx" class="mb-4">
+                    <div class="text-sm font-medium text-gray-900 mb-1">
+                      Grupo {{ idx + 1 }}: {{ h.especie || '-' }}<span v-if="h.raca"> • Raça: {{ h.raca }}</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table class="min-w-full text-xs border border-gray-200">
+                        <thead class="bg-gray-50">
+                          <tr>
+                            <th class="px-2 py-1 text-left border-b border-gray-200">Faixa Etária</th>
+                            <th class="px-2 py-1 text-right border-b border-gray-200">Machos</th>
+                            <th class="px-2 py-1 text-right border-b border-gray-200">Fêmeas</th>
+                            <th class="px-2 py-1 text-right border-b border-gray-200">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-if="!h.faixas || h.faixas.length === 0">
+                            <td class="px-2 py-1 text-gray-500" colspan="4">Sem faixas etárias informadas.</td>
+                          </tr>
+                          <tr v-for="(f, fidx) in (h.faixas || [])" :key="fidx" class="border-t">
+                            <td class="px-2 py-1">{{ f.faixa_etaria || '-' }}</td>
+                            <td class="px-2 py-1 text-right">{{ toInt(f.quantidade_machos) }}</td>
+                            <td class="px-2 py-1 text-right">{{ toInt(f.quantidade_femeas) }}</td>
+                            <td class="px-2 py-1 text-right">{{ toInt(f.quantidade_machos) + toInt(f.quantidade_femeas) }}</td>
+                          </tr>
+                          <tr class="bg-gray-50 font-semibold border-t">
+                            <td class="px-2 py-1">Total</td>
+                            <td class="px-2 py-1 text-right">{{ herdTotals(h).m }}</td>
+                            <td class="px-2 py-1 text-right">{{ herdTotals(h).f }}</td>
+                            <td class="px-2 py-1 text-right">{{ herdTotals(h).m + herdTotals(h).f }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </template>
+                <!-- Legado: objeto único -->
+                <template v-else>
+                  <div class="text-sm text-gray-700 grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div v-if="evaluation.details.rebanho.especie">Espécie: <strong>{{ evaluation.details.rebanho.especie }}</strong></div>
+                    <div v-if="evaluation.details.rebanho.faixa_etaria">Faixa etária: <strong>{{ evaluation.details.rebanho.faixa_etaria }}</strong></div>
+                    <div v-if="evaluation.details.rebanho.raca">Raça: <strong>{{ evaluation.details.rebanho.raca }}</strong></div>
+                    <div v-if="evaluation.details.rebanho.sexo">Sexo pred.: <strong>{{ evaluation.details.rebanho.sexo }}</strong></div>
+                    <div v-if="evaluation.details.rebanho.quantidade_machos != null">Machos: <strong>{{ evaluation.details.rebanho.quantidade_machos }}</strong></div>
+                    <div v-if="evaluation.details.rebanho.quantidade_femeas != null">Fêmeas: <strong>{{ evaluation.details.rebanho.quantidade_femeas }}</strong></div>
+                  </div>
+                </template>
+              </div>
             </div>
 
             <!-- Observações Técnicas -->
@@ -198,6 +294,17 @@
               <h3 class="text-lg font-medium text-gray-900 mb-3">Observações Técnicas</h3>
               <div class="bg-gray-50 p-4 rounded-lg">
                 <p class="text-sm text-gray-700 whitespace-pre-line">{{ evaluation.observations }}</p>
+              </div>
+            </div>
+
+            <!-- Mídia (Imagens) -->
+            <div v-if="evaluation.media && evaluation.media.length" class="pt-6 border-t border-gray-200">
+              <h3 class="text-lg font-medium text-gray-900 mb-3">Imagens</h3>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div v-for="m in evaluation.media" :key="m.id" class="rounded overflow-hidden border">
+                  <img :src="storageUrl(m.path)" class="w-full h-32 object-cover" />
+                  <div class="px-2 py-1 text-xs text-gray-500 truncate">{{ m.original_name }}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -286,6 +393,25 @@ export default {
         'pessimo': 'bg-red-100 text-red-800'
       }
       return classes[condition] || 'bg-gray-100 text-gray-800'
+    },
+
+    storageUrl(path) {
+      if (!path) return ''
+      return `/storage/${path}`.replace(/\\+/g, '/').replace('//storage', '/storage')
+    },
+
+    toInt(v) {
+      const n = parseInt(v, 10)
+      return isNaN(n) ? 0 : n
+    },
+
+    herdTotals(h) {
+      const faixas = Array.isArray(h?.faixas) ? h.faixas : []
+      return faixas.reduce((acc, f) => {
+        acc.m += this.toInt(f?.quantidade_machos)
+        acc.f += this.toInt(f?.quantidade_femeas)
+        return acc
+      }, { m: 0, f: 0 })
     }
   }
 }

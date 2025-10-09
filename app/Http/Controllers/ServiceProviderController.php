@@ -7,539 +7,428 @@ use App\Models\Property;
 use App\Models\PropertyEvaluation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ServiceProviderController extends Controller
 {
+    // Cache TTL em minutos
+    private const CACHE_TTL = 15;
+    
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $user = Auth::user();
-
-        // Proprietário puro: só tem perfil proprietario
-        if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
-            $valuationData = $this->getOwnerValuationData($user);
-            $stats = $this->getOwnerStats($user);
-            return Inertia::render('Dashboard', [
-                'valuationData' => $valuationData,
-                'stats' => $stats,
-                'properties' => Property::whereHas('owners', function ($query) use ($user) {
-                    $query->where('user_id', $user->id);
-                })->with(['owners', 'evaluations' => function($query) {
-                    $query->orderBy('created_at', 'desc');
-                }])->get(),
-                'evaluations' => PropertyEvaluation::whereHas('property.owners', function ($query) use ($user) {
-                    $query->where('user_id', $user->id);
-                })->latest()->get(),
-                'latestEvaluations' => PropertyEvaluation::whereHas('property.owners', function ($query) use ($user) {
-                    $query->where('user_id', $user->id);
-                })
-                ->latest()
-                ->get()
-                ->unique('property_id')
-                ->keyBy('property_id'),
-                'showGraphs' => true,
-                'showClients' => false,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'profiles' => $user->profiles->pluck('slug')->toArray()
-                ],
-            ]);
+        $user = $this->loadUserWithProfiles(Auth::user());
+        
+        // Determinar tipo de perfil
+        $isOwner = $user->hasProfile('proprietario');
+        $isProvider = $user->hasProfile('prestador');
+        
+        // Proprietário puro
+        if ($isOwner && !$isProvider) {
+            return $this->ownerDashboard($user);
         }
-
-        // Prestador puro: só tem perfil prestador
-        if ($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
-            $serviceProviderId = $user->id;
-            $serviceProviders = Authorization::where('service_provider_id', $serviceProviderId)
-                ->with('owner')
-                ->get();
-            $owners = [];
-            foreach ($serviceProviders as $serviceProvider) {
-                if ($serviceProvider->can_create_properties || $serviceProvider->can_view_documents) {
-                    $owners[] = $serviceProvider->owner;
-                }
-            }
-            return Inertia::render('DashboardService', [
-                'serviceProviders' => $owners,
-                'valuationData' => ['urban' => [], 'commercial' => [], 'rural' => []],
-                'stats' => [
-                    'totalClients' => count($owners),
-                    'totalProperties' => 0,
-                    'totalEvaluations' => 0,
-                    'propertiesByType' => []
-                ],
-                'showGraphs' => false,
-                'showClients' => true,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'profiles' => $user->profiles->pluck('slug')->toArray()
-                ]
-            ]);
+        
+        // Prestador puro
+        if ($isProvider && !$isOwner) {
+            return $this->providerDashboard($user);
         }
-
-        // Proprietário/Prestador: tem ambos os perfis
-        if ($user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
-            $serviceProviderId = $user->id;
-            $serviceProviders = Authorization::where('service_provider_id', $serviceProviderId)
-                ->with('owner')
-                ->get();
-            $owners = [];
-            foreach ($serviceProviders as $serviceProvider) {
-                if ($serviceProvider->can_create_properties || $serviceProvider->can_view_documents) {
-                    $owners[] = $serviceProvider->owner;
-                }
-            }
-            $valuationData = $this->getOwnerValuationData($user);
-            $stats = $this->getOwnerStats($user);
-            $stats['totalClients'] = count($owners);
-            return Inertia::render('DashboardService', [
-                'serviceProviders' => $owners,
-                'valuationData' => $valuationData,
-                'stats' => $stats,
-                'showGraphs' => true,
-                'showClients' => true,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'profiles' => $user->profiles->pluck('slug')->toArray()
-                ]
-            ]);
+        
+        // Dual profile (Proprietário + Prestador)
+        if ($isOwner && $isProvider) {
+            return $this->dualProfileDashboard($user);
         }
-
-        // Caso não tenha perfil reconhecido
+        
+        // Nenhum perfil reconhecido
         return Inertia::render('Dashboard');
     }
 
     /**
-     * Retorna dados de valorização das PRÓPRIAS propriedades do usuário (não dos clientes)
+     * Dashboard para proprietário puro
      */
-    private function getOwnerValuationData($user)
+    private function ownerDashboard($user)
     {
-        // Buscar apenas propriedades onde o usuário é proprietário
-        $propertyIds = Property::whereHas('owners', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
-        })->pluck('id')->toArray();
-
-        if (empty($propertyIds)) {
+        $cacheKey = "dashboard_owner_{$user->id}";
+        
+        $data = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($user) {
+            $propertyIds = $this->getOwnerPropertyIds($user->id);
+            
             return [
-                'urban' => [],
-                'commercial' => [],
-                'rural' => []
-            ];
-        }
-
-        // Buscar avaliações das últimas 12 meses das próprias propriedades
-        $evaluations = DB::table('property_evaluations as pe')
-            ->whereIn('pe.property_id', $propertyIds)
-            ->where('pe.created_at', '>=', now()->subMonths(12))
-            ->select([
-                'pe.property_type',
-                'pe.urban_subtype',
-                'pe.valuation',
-                'pe.created_at',
-                DB::raw('DATE_FORMAT(pe.created_at, "%Y-%m") as month_year')
-            ])
-            ->orderBy('pe.created_at')
-            ->get();
-
-        // Agrupar por tipo e calcular médias mensais
-        $grouped = $evaluations->groupBy(function($item) {
-            if ($item->property_type === 'urbana') {
-                return $item->urban_subtype === 'residencial' ? 'urban' : 'commercial';
-            }
-            return 'rural';
-        });
-
-        $result = [];
-
-        foreach (['urban', 'commercial', 'rural'] as $type) {
-            if (!isset($grouped[$type])) {
-                $result[$type] = [];
-                continue;
-            }
-
-            $monthlyData = $grouped[$type]->groupBy('month_year')->map(function($items, $month) {
-                return [
-                    'month' => $month,
-                    'value' => $items->avg('valuation'),
-                    'count' => $items->count()
-                ];
-            })->values()->toArray();
-
-            $result[$type] = $monthlyData;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Busca estatísticas das PRÓPRIAS propriedades do usuário
-     */
-    private function getOwnerStats($user)
-    {
-        // Buscar apenas propriedades onde o usuário é proprietário
-        $propertyIds = Property::whereHas('owners', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
-        })->pluck('id')->toArray();
-
-        if (empty($propertyIds)) {
-            return [
-                'totalProperties' => 0,
-                'totalEvaluations' => 0,
-                'averageValuation' => 0,
-                'lastMonthGrowth' => 0,
-                'propertiesByType' => []
-            ];
-        }
-
-        // Contar propriedades por tipo (baseado nas avaliações)
-        $propertiesByType = DB::table('property_evaluations as pe')
-            ->whereIn('pe.property_id', $propertyIds)
-            ->select([
-                DB::raw('CASE
-                    WHEN pe.property_type = "urbana" AND pe.urban_subtype = "residencial" THEN "Urbanas"
-                    WHEN pe.property_type = "urbana" AND pe.urban_subtype = "comercial" THEN "Comerciais"
-                    WHEN pe.property_type = "rural" THEN "Rurais"
-                    ELSE "Outros"
-                END as type'),
-                DB::raw('COUNT(DISTINCT pe.property_id) as count')
-            ])
-            ->groupBy('type')
-            ->get()
-            ->pluck('count', 'type')
-            ->toArray();
-
-        // Total de propriedades únicas
-        $totalProperties = count($propertyIds);
-
-        // Estatísticas de avaliações
-        $totalEvaluations = DB::table('property_evaluations')
-            ->whereIn('property_id', $propertyIds)
-            ->count();
-
-        $averageValuation = DB::table('property_evaluations')
-            ->whereIn('property_id', $propertyIds)
-            ->avg('valuation') ?? 0;
-
-        // Crescimento do último mês
-        $currentMonth = DB::table('property_evaluations')
-            ->whereIn('property_id', $propertyIds)
-            ->where('created_at', '>=', now()->startOfMonth())
-            ->avg('valuation') ?? 0;
-
-        $lastMonth = DB::table('property_evaluations')
-            ->whereIn('property_id', $propertyIds)
-            ->whereBetween('created_at', [
-                now()->subMonth()->startOfMonth(),
-                now()->subMonth()->endOfMonth()
-            ])
-            ->avg('valuation') ?? 0;
-
-        $growth = 0;
-        if ($lastMonth > 0) {
-            $growth = (($currentMonth - $lastMonth) / $lastMonth) * 100;
-        }
-
-        return [
-            'totalProperties' => $totalProperties,
-            'propertiesByType' => $propertiesByType,
-            'totalEvaluations' => $totalEvaluations,
-            'averageValuation' => $averageValuation,
-            'lastMonthGrowth' => round($growth, 2)
-        ];
-    }
-
-    /**
-     * Retorna dados de valorização patrimonial baseado no perfil do usuário
-     */
-    private function getValuationData()
-    {
-        $user = Auth::user();
-        $propertyIds = $this->getUserPropertyIds($user);
-
-        if (empty($propertyIds)) {
-            return [
-                'urban' => [],
-                'commercial' => [],
-                'rural' => []
-            ];
-        }
-
-        // Buscar avaliações das últimas 12 meses
-        $evaluations = DB::table('property_evaluations as pe')
-            ->whereIn('pe.property_id', $propertyIds)
-            ->where('pe.created_at', '>=', now()->subMonths(12))
-            ->select([
-                'pe.property_type',
-                'pe.urban_subtype',
-                'pe.valuation',
-                'pe.created_at',
-                DB::raw('DATE_FORMAT(pe.created_at, "%Y-%m") as month_year')
-            ])
-            ->orderBy('pe.created_at')
-            ->get();
-
-        // Agrupar por tipo e calcular médias mensais
-        $grouped = $evaluations->groupBy(function($item) {
-            if ($item->property_type === 'urbana') {
-                return $item->urban_subtype === 'residencial' ? 'urban' : 'commercial';
-            }
-            return 'rural';
-        });
-
-        $result = [];
-
-        foreach (['urban', 'commercial', 'rural'] as $type) {
-            if (!isset($grouped[$type])) {
-                $result[$type] = [];
-                continue;
-            }
-
-            $monthlyData = $grouped[$type]->groupBy('month_year')->map(function($items, $month) {
-                return [
-                    'month' => $month,
-                    'value' => $items->avg('valuation'),
-                    'count' => $items->count()
-                ];
-            })->values()->toArray();
-
-            $result[$type] = $monthlyData;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Busca estatísticas gerais do dashboard
-     */
-    private function getDashboardStats()
-    {
-        $user = Auth::user();
-        $propertyIds = $this->getUserPropertyIds($user);
-
-        if (empty($propertyIds)) {
-            return [
-                'totalProperties' => 0,
-                'totalClients' => 0,
-                'totalEvaluations' => 0,
-                'averageValuation' => 0,
-                'lastMonthGrowth' => 0,
-                'propertiesByType' => []
-            ];
-        }
-
-        // Contar propriedades por tipo
-        $propertiesByType = DB::table('property_evaluations as pe')
-            ->whereIn('pe.property_id', $propertyIds)
-            ->select([
-                DB::raw('CASE
-                    WHEN pe.property_type = "urbana" AND pe.urban_subtype = "residencial" THEN "Urbanas"
-                    WHEN pe.property_type = "urbana" AND pe.urban_subtype = "comercial" THEN "Comerciais"
-                    WHEN pe.property_type = "rural" THEN "Rurais"
-                    ELSE "Outros"
-                END as type'),
-                DB::raw('COUNT(DISTINCT pe.property_id) as count')
-            ])
-            ->groupBy('type')
-            ->get()
-            ->pluck('count', 'type')
-            ->toArray();
-
-        // Total de propriedades únicas
-        $totalProperties = DB::table('properties')
-            ->whereIn('id', $propertyIds)
-            ->count();
-
-        // Total de clientes únicos (para prestadores de serviço)
-        $totalClients = 0;
-    if ($user->hasProfile('prestador')) {
-            $totalClients = Authorization::where('service_provider_id', $user->id)
-                ->where(function($query) {
-                    $query->where('can_create_properties', 1)
-                          ->orWhere('can_view_documents', 1);
+                'valuationData' => $this->getOwnerValuationData($propertyIds),
+                'stats' => $this->getOwnerStats($propertyIds),
+                'properties' => Property::whereHas('owners', function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
                 })
-                ->distinct('owner_id')
-                ->count();
+                ->with(['owners', 'evaluations' => function($query) {
+                    $query->latest()->limit(5);
+                }])
+                ->get(),
+            ];
+        });
+        
+        // Avaliações não são cacheadas pois mudam com frequência
+        $evaluations = PropertyEvaluation::whereHas('property.owners', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })
+        // Select only existing columns; properties table has no 'name' column.
+        // Include fields useful for display (nickname/address).
+        ->with(['property' => function($q) { $q->select('id', 'nickname', 'address'); }])
+        ->latest()
+        ->get();
+        
+        $latestEvaluations = $evaluations
+            ->unique('property_id')
+            ->keyBy('property_id');
+        
+        return Inertia::render('Dashboard', array_merge($data, [
+            'evaluations' => $evaluations,
+            'latestEvaluations' => $latestEvaluations,
+            'showGraphs' => true,
+            'showClients' => false,
+            'user' => $this->formatUserData($user),
+        ]));
+    }
+
+    /**
+     * Dashboard para prestador puro
+     */
+    private function providerDashboard($user)
+    {
+        $cacheKey = "dashboard_provider_{$user->id}";
+        
+        $data = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($user) {
+            // Otimizar query com eager loading e filtros diretos
+            $authorizations = Authorization::where('service_provider_id', $user->id)
+                ->where(function($query) {
+                    $query->where('can_create_properties', true)
+                          ->orWhere('can_view_documents', true);
+                })
+                ->with(['owner' => function($query) {
+                    $query->withCount([
+                        'properties',
+                        'properties as evaluations_count' => function($q) {
+                            $q->join('property_evaluations', 'properties.id', '=', 'property_evaluations.property_id');
+                        }
+                    ]);
+                }])
+                ->get();
+            
+            $clients = $authorizations->map(function($auth) {
+                $owner = $auth->owner;
+                $owner->permissions = [
+                    'can_view_documents' => $auth->can_view_documents,
+                    'can_create_properties' => $auth->can_create_properties,
+                    'evaluation_permission' => $auth->evaluation_permission ?? false,
+                ];
+                return $owner;
+            });
+            
+            $totalProperties = $clients->sum('properties_count');
+            $totalEvaluations = $clients->sum('evaluations_count');
+            
+            return [
+                'clients' => $clients,
+                'stats' => [
+                    'totalClients' => $clients->count(),
+                    'totalProperties' => $totalProperties,
+                    'totalEvaluations' => $totalEvaluations,
+                    'activeAuthorizations' => $authorizations->count(),
+                ],
+            ];
+        });
+        
+        return Inertia::render('DashboardServiceModern', array_merge($data, [
+            'user' => $this->formatUserData($user),
+        ]));
+    }
+
+    /**
+     * Dashboard para perfil dual
+     */
+    private function dualProfileDashboard($user)
+    {
+        $cacheKey = "dashboard_dual_{$user->id}";
+        
+        $data = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($user) {
+            $propertyIds = $this->getOwnerPropertyIds($user->id);
+            
+            $clients = Authorization::where('service_provider_id', $user->id)
+                ->where(function($query) {
+                    $query->where('can_create_properties', true)
+                          ->orWhere('can_view_documents', true);
+                })
+                ->with('owner')
+                ->get()
+                ->pluck('owner');
+            
+            $stats = $this->getOwnerStats($propertyIds);
+            $stats['totalClients'] = $clients->count();
+            
+            return [
+                'serviceProviders' => $clients,
+                'valuationData' => $this->getOwnerValuationData($propertyIds),
+                'stats' => $stats,
+            ];
+        });
+        
+        return Inertia::render('DashboardService', array_merge($data, [
+            'showGraphs' => true,
+            'showClients' => true,
+            'user' => $this->formatUserData($user),
+        ]));
+    }
+
+    /**
+     * Retorna dados de valorização com query otimizada
+     */
+    private function getOwnerValuationData(array $propertyIds)
+    {
+        if (empty($propertyIds)) {
+            return ['urban' => [], 'commercial' => [], 'rural' => []];
         }
-
-        // Estatísticas de avaliações
-        $totalEvaluations = DB::table('property_evaluations')
+        
+        $evaluations = PropertyEvaluation::query()
             ->whereIn('property_id', $propertyIds)
-            ->count();
-
-        $averageValuation = DB::table('property_evaluations')
-            ->whereIn('property_id', $propertyIds)
-            ->avg('valuation') ?? 0;
-
-        // Crescimento do último mês
-        $currentMonth = DB::table('property_evaluations')
-            ->whereIn('property_id', $propertyIds)
-            ->where('created_at', '>=', now()->startOfMonth())
-            ->avg('valuation') ?? 0;
-
-        $lastMonth = DB::table('property_evaluations')
-            ->whereIn('property_id', $propertyIds)
-            ->whereBetween('created_at', [
-                now()->subMonth()->startOfMonth(),
-                now()->subMonth()->endOfMonth()
+            ->where('created_at', '>=', now()->subMonths(12))
+            ->select([
+                'property_type',
+                'urban_subtype',
+                'valuation',
+                DB::raw('DATE_FORMAT(created_at, "%Y-%m") as month_year')
             ])
-            ->avg('valuation') ?? 0;
-
-        $growth = 0;
-        if ($lastMonth > 0) {
-            $growth = (($currentMonth - $lastMonth) / $lastMonth) * 100;
+            ->orderBy('created_at')
+            ->get();
+        
+        return $this->groupEvaluationsByType($evaluations);
+    }
+    
+    /**
+     * Agrupa avaliações por tipo
+     */
+    private function groupEvaluationsByType($evaluations)
+    {
+        $grouped = $evaluations->groupBy(function($item) {
+            if ($item->property_type === 'urbana') {
+                return $item->urban_subtype === 'residencial' ? 'urban' : 'commercial';
+            }
+            return 'rural';
+        });
+        
+        $result = [];
+        
+        foreach (['urban', 'commercial', 'rural'] as $type) {
+            $result[$type] = isset($grouped[$type])
+                ? $grouped[$type]
+                    ->groupBy('month_year')
+                    ->map(fn($items, $month) => [
+                        'month' => $month,
+                        'value' => round($items->avg('valuation'), 2),
+                        'count' => $items->count()
+                    ])
+                    ->values()
+                    ->toArray()
+                : [];
         }
-
+        
+        return $result;
+    }
+    
+    /**
+     * Busca estatísticas otimizadas
+     */
+    private function getOwnerStats(array $propertyIds)
+    {
+        if (empty($propertyIds)) {
+            return $this->emptyStats();
+        }
+        
+        // Query única para buscar todas as estatísticas
+        $stats = DB::table('property_evaluations')
+            ->whereIn('property_id', $propertyIds)
+            ->select([
+                DB::raw('COUNT(*) as total_evaluations'),
+                DB::raw('COUNT(DISTINCT property_id) as total_properties'),
+                DB::raw('AVG(valuation) as avg_valuation'),
+                DB::raw('CASE 
+                    WHEN property_type = "urbana" AND urban_subtype = "residencial" THEN "Urbanas"
+                    WHEN property_type = "urbana" AND urban_subtype = "comercial" THEN "Comerciais"
+                    WHEN property_type = "rural" THEN "Rurais"
+                    ELSE "Outros"
+                END as type')
+            ])
+            ->groupBy('type')
+            ->get();
+        
+        // Calcular crescimento mensal
+        $growth = $this->calculateMonthlyGrowth($propertyIds);
+        
         return [
-            'totalProperties' => $totalProperties,
-            'totalClients' => $totalClients,
-            'propertiesByType' => $propertiesByType,
-            'totalEvaluations' => $totalEvaluations,
-            'averageValuation' => $averageValuation,
-            'lastMonthGrowth' => round($growth, 2)
+            'totalProperties' => $stats->sum('total_properties'),
+            'totalEvaluations' => $stats->sum('total_evaluations'),
+            'averageValuation' => round($stats->avg('avg_valuation') ?? 0, 2),
+            'lastMonthGrowth' => $growth,
+            'propertiesByType' => $stats->pluck('total_properties', 'type')->toArray(),
+        ];
+    }
+    
+    /**
+     * Calcula crescimento mensal
+     */
+    private function calculateMonthlyGrowth(array $propertyIds)
+    {
+        $months = PropertyEvaluation::query()
+            ->whereIn('property_id', $propertyIds)
+            ->select([
+                DB::raw('AVG(valuation) as avg_val'),
+                DB::raw('MONTH(created_at) as month'),
+                DB::raw('YEAR(created_at) as year')
+            ])
+            ->where('created_at', '>=', now()->subMonths(2))
+            ->groupBy('year', 'month')
+            ->orderBy('year', 'desc')
+            ->orderBy('month', 'desc')
+            ->limit(2)
+            ->get();
+        
+        if ($months->count() < 2 || !$months[1]->avg_val) {
+            return 0;
+        }
+        
+        return round((($months[0]->avg_val - $months[1]->avg_val) / $months[1]->avg_val) * 100, 2);
+    }
+
+    /**
+     * Retorna IDs das propriedades do proprietário
+     */
+    private function getOwnerPropertyIds(int $userId): array
+    {
+        return Property::whereHas('owners', function ($query) use ($userId) {
+            $query->where('user_id', $userId);
+        })->pluck('id')->toArray();
+    }
+    
+    /**
+     * Retorna estatísticas vazias
+     */
+    private function emptyStats(): array
+    {
+        return [
+            'totalProperties' => 0,
+            'totalEvaluations' => 0,
+            'averageValuation' => 0,
+            'lastMonthGrowth' => 0,
+            'propertiesByType' => []
         ];
     }
 
     /**
-     * Busca IDs das propriedades que o usuário tem acesso baseado no perfil
+     * Carrega usuário com perfis se necessário
      */
-    private function getUserPropertyIds($user)
+    private function loadUserWithProfiles($user)
     {
-        // Proprietário puro: apenas suas propriedades
-        if ($user->hasProfile('proprietario') && !$user->hasProfile('prestador')) {
-            return Property::whereHas('owners', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })->pluck('id')->toArray();
+        if (!($user instanceof \App\Models\User)) {
+            return \App\Models\User::with('profiles')->findOrFail($user->id);
         }
-        // Prestador puro: propriedades autorizadas
-        if ($user->hasProfile('prestador') && !$user->hasProfile('proprietario')) {
-            return DB::table('authorizations')
-                ->where('service_provider_id', $user->id)
-                ->where('can_view_documents', 1)
-                ->join('property_user', 'property_user.user_id', '=', 'authorizations.owner_id')
-                ->pluck('property_user.property_id')
-                ->unique()
-                ->toArray();
+        
+        if (!$user->relationLoaded('profiles')) {
+            $user->load('profiles');
         }
-        // Proprietário/Prestador: união dos dois
-        if ($user->hasProfile('proprietario') && $user->hasProfile('prestador')) {
-            $ownProperties = Property::whereHas('owners', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })->pluck('id')->toArray();
-            $authorizedProperties = DB::table('authorizations')
-                ->where('service_provider_id', $user->id)
-                ->where('can_view_documents', 1)
-                ->join('property_user', 'property_user.user_id', '=', 'authorizations.owner_id')
-                ->pluck('property_user.property_id')
-                ->toArray();
-            return array_unique(array_merge($ownProperties, $authorizedProperties));
-        }
-        return [];
+        
+        return $user;
+    }
+    
+    /**
+     * Formata dados do usuário para response
+     */
+    private function formatUserData($user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'profiles' => $user->profiles->pluck('slug')->toArray(),
+            'hasMultipleProfiles' => $user->profiles->count() > 1,
+        ];
     }
 
     /**
-     * API endpoint para buscar dados de valorização (AJAX)
+     * Buscar propriedades de um cliente específico
      */
-    public function getValuationDataApi()
+    public function getClientProperties(Request $request, int $clientId)
     {
-        return response()->json($this->getValuationData());
-    }
-
-    /**
-     * API endpoint para buscar estatísticas do dashboard (AJAX)
-     */
-    public function getDashboardStatsApi()
-    {
-        return response()->json($this->getDashboardStats());
-    }
-
-    /**
-     * Buscar propriedades de um cliente específico (para prestadores de serviço)
-     */
-    public function getClientProperties($clientId)
-    {
-        $user = Auth::user();
-
-        // Verificar se o usuário tem permissão para ver propriedades deste cliente
-    if (!$user->hasProfile('prestador')) {
+        $user = $this->loadUserWithProfiles(Auth::user());
+        
+        // Verificar perfil
+        if (!$user->hasProfile('prestador')) {
             return response()->json(['error' => 'Acesso negado'], 403);
         }
-
-        $hasPermission = Authorization::where('service_provider_id', $user->id)
-            ->where('owner_id', $clientId)
-            ->where(function($query) {
-                $query->where('can_view_documents', 1)
-                      ->orWhere('can_create_properties', 1);
-            })
-            ->exists();
-
+        
+        // Verificar autorização com cache
+        $cacheKey = "auth_{$user->id}_{$clientId}";
+        $hasPermission = Cache::remember($cacheKey, 60, function () use ($user, $clientId) {
+            return Authorization::where('service_provider_id', $user->id)
+                ->where('owner_id', $clientId)
+                ->where(function($query) {
+                    $query->where('can_view_documents', true)
+                          ->orWhere('can_create_properties', true);
+                })
+                ->exists();
+        });
+        
         if (!$hasPermission) {
             return response()->json(['error' => 'Sem permissão para este cliente'], 403);
         }
-
-        // Buscar propriedades do cliente
+        
+        // Buscar propriedades com eager loading otimizado
         $properties = Property::whereHas('owners', function ($query) use ($clientId) {
             $query->where('user_id', $clientId);
-        })->with(['owners', 'evaluations' => function($query) {
-            $query->latest()->limit(1); // Última avaliação
-        }])->get();
-
+        })
+        ->with([
+            'owners:id,name,email',
+            'evaluations' => function($query) {
+                $query->select('id', 'property_id', 'valuation', 'created_at')
+                      ->latest()
+                      ->limit(1);
+            }
+        ])
+        ->get();
+        
         return response()->json($properties);
     }
-
+    
     /**
-     * Show the form for creating a new resource.
+     * Limpar cache do usuário
      */
-    public function create()
+    public function clearCache(Request $request)
     {
-        //
+        $user = Auth::user();
+        
+        Cache::forget("dashboard_owner_{$user->id}");
+        Cache::forget("dashboard_provider_{$user->id}");
+        Cache::forget("dashboard_dual_{$user->id}");
+        
+        return response()->json(['message' => 'Cache limpo com sucesso']);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * API endpoints (mantidos para compatibilidade)
      */
-    public function store(Request $request)
+    public function getValuationDataApi()
     {
-        //
+        $user = $this->loadUserWithProfiles(Auth::user());
+        $propertyIds = $this->getOwnerPropertyIds($user->id);
+        
+        return response()->json($this->getOwnerValuationData($propertyIds));
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function getDashboardStatsApi()
     {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        $user = $this->loadUserWithProfiles(Auth::user());
+        $propertyIds = $this->getOwnerPropertyIds($user->id);
+        
+        return response()->json($this->getOwnerStats($propertyIds));
     }
 }

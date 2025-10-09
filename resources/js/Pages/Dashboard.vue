@@ -325,6 +325,12 @@ const lastEvaluations = Object.values(recentEvaluations.value).map((evaluation) 
         return evaluation.valuation;
     });
 
+// Helper to get a readable property name from evaluation.property
+const getPropertyDisplayName = (evaluation) => {
+    const p = evaluation.property || {};
+    return p.display_name || p.nickname || p.address || `Propriedade #${p.id ?? ''}`;
+};
+
 // Formatação de valores
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', {
