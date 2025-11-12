@@ -125,10 +125,10 @@ const validProperties = computed(() => {
                                             <b>{{ property.nickname }}</b>
                                         </h2>
                                         
-                                        <p v-if="property.type_property === 1" class="mt-1 text-sm font-medium text-gray-900">Distrito: <b>{{ property.district }}</b></p>
+                                        <p v-if="(property.property_category || (property.type_property === 1 ? 'urban' : property.type_property === 2 ? 'rural' : null)) === 'urban'" class="mt-1 text-sm font-medium text-gray-900">Distrito: <b>{{ property.district }}</b></p>
                                         <p v-else class="mt-1 text-sm font-medium text-gray-900">Subdistrito: {{ property.district }}</p>
 
-                                        <p v-if="property.type_property === 1" class="mt-1 text-sm font-medium text-gray-900">Bairro: <b>{{ property.locality }}</b></p>
+                                        <p v-if="(property.property_category || (property.type_property === 1 ? 'urban' : property.type_property === 2 ? 'rural' : null)) === 'urban'" class="mt-1 text-sm font-medium text-gray-900">Bairro: <b>{{ property.locality }}</b></p>
                                         <p v-else class="mt-1 text-sm font-medium text-gray-900">Localidade: {{ property.locality }}</p>
                                         
                                         <p class="mt-1 text-sm font-medium text-gray-900">{{ property.area }} - {{ property.unit }}</p>

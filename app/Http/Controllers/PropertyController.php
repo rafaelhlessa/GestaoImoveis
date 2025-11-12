@@ -43,7 +43,7 @@ class PropertyController extends Controller
             $properties = Cache::remember($cacheKey, 60, function () use ($user) {
                 return Property::select([
                     'properties.id', 'properties.is_active', 'properties.title_deed', 'properties.title_deed_number',
-                    'properties.area', 'properties.unit', 'properties.type_property', 'properties.address',
+                    'properties.area', 'properties.unit', 'properties.type_property', 'properties.property_category', 'properties.property_subtype', 'properties.address',
                     'properties.city', 'properties.district', 'properties.locality', 'properties.nickname',
                     'properties.created_at', 'properties.updated_at'
                 ])->whereHas('owners', function ($query) use ($user) {
@@ -305,7 +305,7 @@ class PropertyController extends Controller
         // Carrega a propriedade com todos os relacionamentos necessários, incluindo file_photo para exibição
         $property = Property::select([
             'properties.id', 'properties.is_active', 'properties.title_deed', 'properties.title_deed_number',
-            'properties.other', 'properties.area', 'properties.unit', 'properties.type_property',
+            'properties.other', 'properties.area', 'properties.unit', 'properties.type_property', 'properties.property_category', 'properties.property_subtype',
             'properties.address', 'properties.city', 'properties.city_id', 'properties.district',
             'properties.locality', 'properties.nickname', 'properties.about', 'properties.created_at',
             'properties.updated_at', 'properties.file_photo' // ✅ Incluído file_photo para exibição
@@ -530,7 +530,7 @@ class PropertyController extends Controller
 
         $property = Property::select([
             'properties.id', 'properties.is_active', 'properties.title_deed', 'properties.title_deed_number',
-            'properties.other', 'properties.area', 'properties.unit', 'properties.type_property',
+            'properties.other', 'properties.area', 'properties.unit', 'properties.type_property', 'properties.property_category', 'properties.property_subtype',
             'properties.address', 'properties.city', 'properties.city_id', 'properties.district',
             'properties.locality', 'properties.nickname', 'properties.about', 'properties.created_at',
             'properties.updated_at', 'properties.file_photo'

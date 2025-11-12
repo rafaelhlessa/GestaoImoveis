@@ -9,7 +9,7 @@ use App\Traits\BelongsToProprietario;
 
 class Property extends Model
 {
-    protected $fillable = ['is_active', 'title_deed', 'title_deed_number', 'other', 'area', 'unit', 'type_property', 'address', 'city', 'city_id', 'district', 'locality', 'nickname', 'about', 'file_photo'];
+    protected $fillable = ['is_active', 'title_deed', 'title_deed_number', 'other', 'area', 'unit', 'type_property', 'property_category', 'property_subtype', 'address', 'city', 'city_id', 'district', 'locality', 'nickname', 'about', 'file_photo'];
 
     use BelongsToProprietario;
 

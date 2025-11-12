@@ -279,10 +279,11 @@ class PropertyEvaluationController extends BaseController
             $validated = $request->validate([
                 'appraiser' => 'required|string|max:255',
                 'valuation' => 'required|numeric|min:0',
-                'property_type' => 'required|string',
+                'property_type' => 'required|in:urbana,rural,industrial',
                 'comments' => 'nullable|string',
                 'observations' => 'nullable|string',
-                'urban_subtype' => 'nullable|string',
+                // Para urbana aceitar residencial, comercial, misto; para outros, manter null
+                'urban_subtype' => 'nullable|in:residencial,comercial,misto',
                 'property_condition' => 'nullable|string',
                 'furniture_status' => 'nullable|string',
                 'rooms' => 'nullable|integer',

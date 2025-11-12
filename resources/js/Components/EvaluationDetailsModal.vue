@@ -368,18 +368,26 @@ export default {
       if (propertyType === 'rural') {
         return 'bg-green-100 text-green-800'
       }
+      if (propertyType === 'industrial') {
+        return 'bg-red-100 text-red-800'
+      }
       if (propertyType === 'urbana') {
-        return urbanSubtype === 'residencial' 
-          ? 'bg-blue-100 text-blue-800'
-          : 'bg-purple-100 text-purple-800'
+        if (urbanSubtype === 'residencial') return 'bg-blue-100 text-blue-800'
+        if (urbanSubtype === 'comercial') return 'bg-purple-100 text-purple-800'
+        if (urbanSubtype === 'misto') return 'bg-indigo-100 text-indigo-800'
+        return 'bg-blue-100 text-blue-800'
       }
       return 'bg-gray-100 text-gray-800'
     },
 
     getTypeLabel(propertyType, urbanSubtype) {
       if (propertyType === 'rural') return 'Rural'
+      if (propertyType === 'industrial') return 'Industrial'
       if (propertyType === 'urbana') {
-        return urbanSubtype === 'residencial' ? 'Residencial' : 'Comercial'
+        if (urbanSubtype === 'residencial') return 'Residencial'
+        if (urbanSubtype === 'comercial') return 'Comercial'
+        if (urbanSubtype === 'misto') return 'Misto'
+        return 'Urbana'
       }
       return 'N/A'
     },

@@ -231,11 +231,20 @@ class PropertyEvaluation extends Model
         if ($this->property_type === 'rural') {
             return 'Rural';
         }
-        
-        if ($this->property_type === 'urbana') {
-            return $this->urban_subtype === 'residencial' ? 'Residencial' : 'Comercial';
+
+        if ($this->property_type === 'industrial') {
+            return 'Industrial';
         }
-        
+
+        if ($this->property_type === 'urbana') {
+            return match ($this->urban_subtype) {
+                'residencial' => 'Residencial',
+                'comercial' => 'Comercial',
+                'misto' => 'Misto',
+                default => 'Urbana',
+            };
+        }
+
         return 'N/A';
     }
 }

@@ -269,7 +269,8 @@ function getPropertyName(property) {
   if (property?.nickname) {
     return property.nickname
   }
-  if (property?.type_property === 1) {
+  const cat = property?.property_category || (property?.type_property === 1 ? 'urban' : property?.type_property === 2 ? 'rural' : null)
+  if (cat === 'urban') {
     return 'Propriedade Urbana'
   }
   return 'Propriedade Rural'

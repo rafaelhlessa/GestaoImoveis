@@ -1,21 +1,42 @@
 <template>
   <div class="grid grid-cols-1 sm:grid-cols-12 gap-x-6 gap-y-8">
-    <!-- Tipo de Propriedade -->
-    <div class="sm:col-span-2 col-span-full">
-      <label for="type_property" class="block text-sm font-medium text-gray-900">
-        Tipo de Propriedade *
+    <!-- Categoria -->
+    <div class="sm:col-span-3 col-span-full">
+      <label for="property_category" class="block text-sm font-medium text-gray-900">
+        Categoria da Propriedade *
       </label>
       <select 
-        id="type_property" 
-        v-model.number="form.type_property" 
+        id="property_category" 
+        v-model="form.property_category" 
         required
         class="mt-2 block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
       >
         <option value="">Selecione</option>
-        <option value="1">Urbana</option>
-        <option value="2">Rural</option>
+        <option value="urban">Urbana</option>
+        <option value="rural">Rural</option>
+        <option value="industrial">Industrial</option>
       </select>
     </div>
+
+    <!-- Subtipo (apenas para urbano/rural) -->
+    <div class="sm:col-span-3 col-span-full" v-if="form.property_category === 'urban' || form.property_category === 'rural'">
+      <label for="property_subtype" class="block text-sm font-medium text-gray-900">
+        Subtipo
+      </label>
+      <select 
+        id="property_subtype" 
+        v-model="form.property_subtype"
+        class="mt-2 block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+      >
+        <option value="">Selecione</option>
+        <option value="residencial">Residencial</option>
+        <option value="comercial">Comercial</option>
+        <option value="misto">Misto</option>
+      </select>
+    </div>
+
+    <!-- Compatibilidade: campo antigo (oculto) -->
+    <input type="hidden" v-model.number="form.type_property" />
 
     <!-- Título de Propriedade -->
     <div class="sm:col-span-3 col-span-full">
@@ -158,7 +179,7 @@
     <!-- Bairro/Localidade -->
     <div class="sm:col-span-4 col-span-full">
       <label for="locality" class="block text-sm font-medium text-gray-900">
-        {{ form.type_property === 1 ? 'Bairro' : 'Localidade' }}
+        {{ form.property_category === 'urban' ? 'Bairro' : 'Localidade' }}
       </label>
       <input 
         type="text" 

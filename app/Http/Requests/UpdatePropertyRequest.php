@@ -123,7 +123,11 @@ class UpdatePropertyRequest extends FormRequest
             'other' => 'nullable|string|max:255',
             'area' => 'nullable|numeric|min:0',
             'unit' => 'nullable|string|max:50',
-            'type_property' => ['required', 'integer'],
+            // Compatibilidade com campo antigo
+            'type_property' => ['nullable', 'integer'],
+            // Novos campos
+            'property_category' => ['nullable', 'in:urban,rural,industrial'],
+            'property_subtype' => ['nullable', 'in:residencial,comercial,misto'],
             'address' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
             'city_id' => 'nullable|integer',
@@ -140,6 +144,21 @@ class UpdatePropertyRequest extends FormRequest
             'owners.*.type_ownership_id' => 'required|integer',
             'owners.*.percentage' => 'required|integer|min:0|max:100',
         ];
+    }
+
+    protected function prepareForValidation()
+    {
+        // Mapear automaticamente type_property para property_category quando necessário
+        $type = (int) $this->input('type_property');
+        $category = $this->input('property_category');
+        if (!$category && $type) {
+            $mapped = null;
+            if ($type === 1) { $mapped = 'urban'; }
+            if ($type === 2) { $mapped = 'rural'; }
+            if ($mapped) {
+                $this->merge(['property_category' => $mapped]);
+            }
+        }
     }
 
     /**

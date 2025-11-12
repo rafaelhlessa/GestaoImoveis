@@ -426,10 +426,10 @@ const getOwnershipTypeName = (rawTypeOwnershipId) => {
                                         </div>
 
                                         <div class="mt-3">
-                                            <p v-if="props.property.type_property === 1" class="text-1xl tracking-tight text-gray-900">Distrito: {{ props.property.district }}</p>
+                                            <p v-if="(props.property.property_category || (props.property.type_property === 1 ? 'urban' : props.property.type_property === 2 ? 'rural' : null)) === 'urban'" class="text-1xl tracking-tight text-gray-900">Distrito: {{ props.property.district }}</p>
                                             <p v-else class="text-1xl tracking-tight text-gray-900">Subdistrito: {{ props.property.district }}</p>
 
-                                            <p v-if="props.property.type_property === 1"class="text-1xl tracking-tight text-gray-900">Bairro: {{ props.property.locality }}</p>
+                                            <p v-if="(props.property.property_category || (props.property.type_property === 1 ? 'urban' : props.property.type_property === 2 ? 'rural' : null)) === 'urban'"class="text-1xl tracking-tight text-gray-900">Bairro: {{ props.property.locality }}</p>
                                             <p v-else class="text-1xl tracking-tight text-gray-900">Localidade: {{ props.property.locality }}</p>
                                         </div>
 
@@ -486,11 +486,11 @@ const getOwnershipTypeName = (rawTypeOwnershipId) => {
                                         <div class="mt-6">
                                             <h3 class="sr-only">Description</h3>
                                             <div class="space-y-6 text-base text-gray-700">
-                                                <p v-if="props.property.type_property === 2">
+                                                <p v-if="(props.property.property_category || (props.property.type_property === 1 ? 'urban' : props.property.type_property === 2 ? 'rural' : null)) === 'rural'">
                                                     Trata-se de propriedade rural no município de {{ props.property.city }}, {{ props.property.district }} na localidade {{ props.property.locality }},
                                                     medindo {{ props.property.area }} - {{ props.property.unit }}.
                                                 </p>
-                                                <p v-if="props.property.type_property === 1">
+                                                <p v-if="(props.property.property_category || (props.property.type_property === 1 ? 'urban' : props.property.type_property === 2 ? 'rural' : null)) === 'urban'">
                                                     Trata-se de propriedade urbana no município de {{ props.property.city }}, bairro {{ props.property.locality }},
                                                     medindo {{ props.property.area }} {{ props.property.unit }}.
                                                 </p>
@@ -498,7 +498,7 @@ const getOwnershipTypeName = (rawTypeOwnershipId) => {
                                             <div class="mt-4 flex space-x-2">
                                                 <div class="flex flex-col sm:flex-row gap-4 justify-end">
                                                     <button
-                                                        v-if="props.property.type_property === 2"
+                                                        v-if="(props.property.property_category || (props.property.type_property === 1 ? 'urban' : props.property.type_property === 2 ? 'rural' : null)) === 'rural'"
                                                         @click="openVeterinaryList"
                                                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                                                         title="Listar declarações existentes e gerar PDF"
@@ -509,7 +509,7 @@ const getOwnershipTypeName = (rawTypeOwnershipId) => {
                                                         Lista de declarações
                                                     </button>
                                                     <button
-                                                        v-if="props.property.type_property === 2"
+                                                        v-if="(props.property.property_category || (props.property.type_property === 1 ? 'urban' : props.property.type_property === 2 ? 'rural' : null)) === 'rural'"
                                                         @click="openVeterinaryDeclaration"
                                                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                                                         title="Gerar declaração da inspetoria veterinária"

@@ -253,8 +253,15 @@
             <tr><td>Tipo de Propriedade</td><td>
                 @if($evaluation->property_type === 'rural')
                     Rural
+                @elseif($evaluation->property_type === 'industrial')
+                    Industrial
                 @elseif($evaluation->property_type === 'urbana')
-                    {{ ($evaluation->urban_subtype === 'residencial') ? 'Residencial' : 'Comercial' }}
+                    @switch($evaluation->urban_subtype)
+                        @case('residencial') Residencial @break
+                        @case('comercial') Comercial @break
+                        @case('misto') Misto @break
+                        @default Urbana
+                    @endswitch
                 @else
                     {{ ucfirst($evaluation->property_type) }}
                 @endif

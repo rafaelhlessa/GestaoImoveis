@@ -306,11 +306,14 @@ export default {
     // Auto-detectar tipo baseado na propriedade
     watch(() => props.property, (newProperty) => {
       if (newProperty) {
-        // Detectar tipo baseado no type_property da propriedade
-        if (newProperty.type_property === 1) {
+        // Detectar tipo baseado na categoria nova ou no type_property legado
+        const cat = newProperty.property_category || (newProperty.type_property === 1 ? 'urban' : newProperty.type_property === 2 ? 'rural' : null)
+        if (cat === 'urban') {
           form.value.property_type = 'urbana'
-        } else if (newProperty.type_property === 2) {
+        } else if (cat === 'rural') {
           form.value.property_type = 'rural'
+        } else if (cat === 'industrial') {
+          form.value.property_type = 'industrial'
         }
       }
     }, { immediate: true })
@@ -329,7 +332,7 @@ export default {
         appraiser: '',
         valuation: null,
         comments: '',
-        property_type: props.property.type_property === 1 ? 'urbana' : props.property.type_property === 2 ? 'rural' : '',
+  property_type: (props.property.property_category === 'urban' ? 'urbana' : props.property.property_category === 'rural' ? 'rural' : props.property.property_category === 'industrial' ? 'industrial' : (props.property.type_property === 1 ? 'urbana' : props.property.type_property === 2 ? 'rural' : '')),
         urban_subtype: '',
         // Reset other fields
         rooms: null,

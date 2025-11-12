@@ -215,10 +215,38 @@
                   <!-- Avaliações Rurais -->
                   <div v-if="evaluations.filter(e => e.property_type === 'rural').length > 0" 
                        class="bg-green-50 p-4 rounded-lg">
-                      <div>Valor médio: {{ formatCurrency(evaluations.filter(e => e.property_type === 'rural').length > 0 ? evaluations.filter(e => e.property_type === 'rural').reduce((sum, e) => sum + (Number(e.valuation) || 0), 0) / evaluations.filter(e => e.property_type === 'rural').length : 0) }}</div>
+                    <h5 class="font-medium text-green-900 mb-2">Propriedades Rurais</h5>
+                    <div class="text-sm text-green-700">
+                      <div>Quantidade: {{ evaluations.filter(e => e.property_type === 'rural').length }}</div>
+                      <div>Valor médio: {{ formatCurrency(
+                        evaluations.filter(e => e.property_type === 'rural').length > 0
+                          ? evaluations
+                              .filter(e => e.property_type === 'rural')
+                              .reduce((sum, e) => sum + (Number(e.valuation) || 0), 0) /
+                            evaluations.filter(e => e.property_type === 'rural').length
+                          : 0
+                      ) }}</div>
+                    </div>
+                  </div>
+
+                  <!-- Avaliações Industriais -->
+                  <div v-if="evaluations.filter(e => e.property_type === 'industrial').length > 0" 
+                       class="bg-red-50 p-4 rounded-lg">
+                    <h5 class="font-medium text-red-900 mb-2">Propriedades Industriais</h5>
+                    <div class="text-sm text-red-700">
+                      <div>Quantidade: {{ evaluations.filter(e => e.property_type === 'industrial').length }}</div>
+                      <div>Valor médio: {{ formatCurrency(
+                        evaluations.filter(e => e.property_type === 'industrial').length > 0
+                          ? evaluations
+                              .filter(e => e.property_type === 'industrial')
+                              .reduce((sum, e) => sum + (Number(e.valuation) || 0), 0) /
+                            evaluations.filter(e => e.property_type === 'industrial').length
+                          : 0
+                      ) }}</div>
                     </div>
                   </div>
                 </div>
+              </div>
               
             </div>
 
@@ -401,18 +429,26 @@ export default {
       if (propertyType === 'rural') {
         return 'bg-green-100 text-green-800'
       }
+      if (propertyType === 'industrial') {
+        return 'bg-red-100 text-red-800'
+      }
       if (propertyType === 'urbana') {
-        return urbanSubtype === 'residencial' 
-          ? 'bg-blue-100 text-blue-800'
-          : 'bg-purple-100 text-purple-800'
+        if (urbanSubtype === 'residencial') return 'bg-blue-100 text-blue-800'
+        if (urbanSubtype === 'comercial') return 'bg-purple-100 text-purple-800'
+        if (urbanSubtype === 'misto') return 'bg-indigo-100 text-indigo-800'
+        return 'bg-blue-100 text-blue-800'
       }
       return 'bg-gray-100 text-gray-800'
     }
 
     const getTypeLabel = (propertyType, urbanSubtype) => {
       if (propertyType === 'rural') return 'Rural'
+      if (propertyType === 'industrial') return 'Industrial'
       if (propertyType === 'urbana') {
-        return urbanSubtype === 'residencial' ? 'Residencial' : 'Comercial'
+        if (urbanSubtype === 'residencial') return 'Residencial'
+        if (urbanSubtype === 'comercial') return 'Comercial'
+        if (urbanSubtype === 'misto') return 'Misto'
+        return 'Urbana'
       }
       return 'N/A'
     }

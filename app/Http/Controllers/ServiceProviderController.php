@@ -187,7 +187,13 @@ class ServiceProviderController extends Controller
     private function getOwnerValuationData(array $propertyIds)
     {
         if (empty($propertyIds)) {
-            return ['urban' => [], 'commercial' => [], 'rural' => []];
+            return [
+                'urban_residential' => [],
+                'urban_commercial' => [],
+                'urban_misto' => [],
+                'rural' => [],
+                'industrial' => [],
+            ];
         }
         
         $evaluations = PropertyEvaluation::query()
@@ -212,14 +218,22 @@ class ServiceProviderController extends Controller
     {
         $grouped = $evaluations->groupBy(function($item) {
             if ($item->property_type === 'urbana') {
-                return $item->urban_subtype === 'residencial' ? 'urban' : 'commercial';
+                return match ($item->urban_subtype) {
+                    'residencial' => 'urban_residential',
+                    'comercial' => 'urban_commercial',
+                    'misto' => 'urban_misto',
+                    default => 'urban_residential',
+                };
+            }
+            if ($item->property_type === 'industrial') {
+                return 'industrial';
             }
             return 'rural';
         });
-        
+
         $result = [];
-        
-        foreach (['urban', 'commercial', 'rural'] as $type) {
+
+        foreach (['urban_residential', 'urban_commercial', 'urban_misto', 'rural', 'industrial'] as $type) {
             $result[$type] = isset($grouped[$type])
                 ? $grouped[$type]
                     ->groupBy('month_year')
@@ -232,7 +246,7 @@ class ServiceProviderController extends Controller
                     ->toArray()
                 : [];
         }
-        
+
         return $result;
     }
     
@@ -253,9 +267,13 @@ class ServiceProviderController extends Controller
                 DB::raw('COUNT(DISTINCT property_id) as total_properties'),
                 DB::raw('AVG(valuation) as avg_valuation'),
                 DB::raw('CASE 
-                    WHEN property_type = "urbana" AND urban_subtype = "residencial" THEN "Urbanas"
-                    WHEN property_type = "urbana" AND urban_subtype = "comercial" THEN "Comerciais"
-                    WHEN property_type = "rural" THEN "Rurais"
+                    WHEN property_type = "urbana" AND urban_subtype = "residencial" THEN "Urbanas - Residenciais"
+                    WHEN property_type = "urbana" AND urban_subtype = "comercial" THEN "Urbanas - Comerciais"
+                    WHEN property_type = "urbana" AND urban_subtype = "misto" THEN "Urbanas - Misto"
+                    WHEN property_type = "rural" AND (urban_subtype IS NULL OR urban_subtype = "residencial") THEN "Rurais - Residenciais"
+                    WHEN property_type = "rural" AND urban_subtype = "comercial" THEN "Rurais - Comerciais"
+                    WHEN property_type = "rural" AND urban_subtype = "misto" THEN "Rurais - Misto"
+                    WHEN property_type = "industrial" THEN "Industriais"
                     ELSE "Outros"
                 END as type')
             ])

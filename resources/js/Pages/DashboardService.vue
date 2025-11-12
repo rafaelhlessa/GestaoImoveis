@@ -33,7 +33,13 @@ const props = defineProps({
     serviceProviders: Array,
     valuationData: {
         type: Object,
-        default: () => ({ urban: [], commercial: [], rural: [] })
+        default: () => ({
+            urban_residential: [],
+            urban_commercial: [],
+            urban_misto: [],
+            rural: [],
+            industrial: []
+        })
     },
     stats: {
         type: Object,
@@ -112,9 +118,11 @@ const filteredServiceProviders = computed(() => {
 // Verificar se há dados no gráfico
 const hasChartData = computed(() => {
     if (!props.valuationData || !shouldShowGraphs.value) return false;
-    return props.valuationData.urban.length > 0 ||
-           props.valuationData.commercial.length > 0 ||
-           props.valuationData.rural.length > 0;
+    return props.valuationData.urban_residential.length > 0 ||
+        props.valuationData.urban_commercial.length > 0 ||
+        props.valuationData.urban_misto.length > 0 ||
+        props.valuationData.rural.length > 0 ||
+        props.valuationData.industrial.length > 0;
 });
 
 // Configuração dos dados do gráfico
@@ -129,7 +137,13 @@ const chartData = computed(() => {
     const allMonths = new Set();
 
     // Coletar todos os meses únicos
-    [...props.valuationData.urban, ...props.valuationData.commercial, ...props.valuationData.rural]
+        [
+            ...props.valuationData.urban_residential,
+            ...props.valuationData.urban_commercial,
+            ...props.valuationData.urban_misto,
+            ...props.valuationData.rural,
+            ...props.valuationData.industrial
+        ]
         .forEach(item => allMonths.add(item.month));
 
     const sortedMonths = Array.from(allMonths).sort();
@@ -147,33 +161,51 @@ const chartData = computed(() => {
             return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         }),
         datasets: [
-            {
-                label: 'Propriedades Urbanas',
-                data: sortedMonths.map(month => getValueForMonth(props.valuationData.urban, month)),
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true,
-                tension: 0.4,
-                spanGaps: true
-            },
-            {
-                label: 'Propriedades Comerciais',
-                data: sortedMonths.map(month => getValueForMonth(props.valuationData.commercial, month)),
-                borderColor: 'rgb(16, 185, 129)',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                fill: true,
-                tension: 0.4,
-                spanGaps: true
-            },
-            {
-                label: 'Propriedades Rurais',
-                data: sortedMonths.map(month => getValueForMonth(props.valuationData.rural, month)),
-                borderColor: 'rgb(245, 158, 11)',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                fill: true,
-                tension: 0.4,
-                spanGaps: true
-            }
+                        {
+                            label: 'Urbana - Residencial',
+                            data: sortedMonths.map(month => getValueForMonth(props.valuationData.urban_residential, month)),
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Urbana - Comercial',
+                            data: sortedMonths.map(month => getValueForMonth(props.valuationData.urban_commercial, month)),
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Urbana - Misto',
+                            data: sortedMonths.map(month => getValueForMonth(props.valuationData.urban_misto, month)),
+                            borderColor: 'rgb(139, 92, 246)',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Rural',
+                            data: sortedMonths.map(month => getValueForMonth(props.valuationData.rural, month)),
+                            borderColor: 'rgb(245, 158, 11)',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Industrial',
+                            data: sortedMonths.map(month => getValueForMonth(props.valuationData.industrial, month)),
+                            borderColor: 'rgb(239, 68, 68)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        }
         ]
     };
 });
@@ -276,11 +308,11 @@ const propertyTypeStats = computed(() => {
     if (!props.stats || !props.stats.propertiesByType || !shouldShowGraphs.value) return [];
 
     const types = props.stats.propertiesByType || {};
-    return [
-        { name: 'Urbanas', count: types.Urbanas || 0, color: 'bg-blue-500' },
-        { name: 'Comerciais', count: types.Comerciais || 0, color: 'bg-green-500' },
-        { name: 'Rurais', count: types.Rurais || 0, color: 'bg-yellow-500' }
-    ];
+    return Object.entries(types).map(([label, count], idx) => ({
+        name: label,
+        count: count || 0,
+        color: ['bg-blue-500','bg-green-500','bg-purple-500','bg-yellow-500','bg-red-500'][idx % 5]
+    }));
 });
 
 // Função para renderizar ícones

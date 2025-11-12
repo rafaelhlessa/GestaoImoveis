@@ -228,11 +228,11 @@ const getOwnershipTypeName = (typeOwnershipId) => {
 
                                         <div class="mt-6">
                                             <div class="space-y-6 text-base text-gray-700">
-                                                <p v-if="currentProperty.type_property === 2">
+                                                <p v-if="(currentProperty.property_category || (currentProperty.type_property === 1 ? 'urban' : currentProperty.type_property === 2 ? 'rural' : null)) === 'rural'">
                                                     Trata-se de propriedade rural no município de {{ currentProperty.city }}, {{ currentProperty.district }} na localidade {{ currentProperty.locality }},
                                                     medindo {{ currentProperty.area }} - {{ currentProperty.unit }}.
                                                 </p>
-                                                <p v-if="currentProperty.type_property === 1">
+                                                <p v-if="(currentProperty.property_category || (currentProperty.type_property === 1 ? 'urban' : currentProperty.type_property === 2 ? 'rural' : null)) === 'urban'">
                                                     Trata-se de propriedade urbana no município de {{ currentProperty.city }}, bairro {{ currentProperty.locality }},
                                                     medindo {{ currentProperty.area }} {{ currentProperty.unit }}.
                                                 </p>

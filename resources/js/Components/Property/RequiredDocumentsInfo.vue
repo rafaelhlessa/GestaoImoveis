@@ -2,7 +2,7 @@
   <div class="mb-6">
     <div class="bg-red-600 border border-red-800 rounded-lg p-4">
       <h3 class="text-white font-semibold mb-2">
-        📋 Documentos Obrigatórios para {{ propertyTypeText }}
+        📋 Documentos Obrigatórios para {{ propertyCategoryText }}
       </h3>
       <ul class="text-white text-sm space-y-1">
         <li v-for="doc in requiredDocuments" :key="doc" class="flex items-start">
@@ -18,20 +18,21 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  propertyType: {
-    type: Number,
-    required: true,
-    validator: (value) => [1, 2].includes(value)
+  propertyCategory: {
+    type: [String, Number],
+    required: true
   }
 })
 
-const propertyTypeText = computed(() => {
-  return props.propertyType === 2 ? 'Propriedades Rurais' : 'Imóveis Urbanos'
+const category = computed(() => {
+  if (typeof props.propertyCategory === 'number') {
+    return props.propertyCategory === 2 ? 'rural' : 'urban'
+  }
+  return props.propertyCategory || 'urban'
 })
 
 const requiredDocuments = computed(() => {
-  if (props.propertyType === 2) {
-    // Propriedades Rurais
+  if (category.value === 'rural') {
     return [
       'Título de propriedade (matrícula/transcrição/outro)',
       'CCIR (Certificado de Cadastro de Imóvel Rural)',
@@ -39,13 +40,26 @@ const requiredDocuments = computed(() => {
       'CAR (Cadastro Ambiental Rural)',
       'Georreferenciamento (obrigatório a partir de novembro de 2025)'
     ]
-  } else {
-    // Imóveis Urbanos
+  }
+  if (category.value === 'industrial') {
     return [
       'Título de propriedade (escritura ou matrícula)',
-      'IPTU (Imposto Predial e Territorial Urbano)',
-      'Certidão negativa de débitos municipais'
+      'Licença de Operação (se aplicável)',
+      'Alvará de Funcionamento',
+      'Laudos e Certificações ambientais (quando exigidos)'
     ]
   }
+  // Urbanas por padrão
+  return [
+    'Título de propriedade (escritura ou matrícula)',
+    'IPTU (Imposto Predial e Territorial Urbano)',
+    'Certidão negativa de débitos municipais'
+  ]
+})
+
+const propertyCategoryText = computed(() => {
+  if (category.value === 'rural') return 'Propriedades Rurais'
+  if (category.value === 'industrial') return 'Propriedades Industriais'
+  return 'Imóveis Urbanos'
 })
 </script>

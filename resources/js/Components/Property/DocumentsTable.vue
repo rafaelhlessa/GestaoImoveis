@@ -20,8 +20,8 @@
 
     <!-- Documentos Obrigatórios -->
     <RequiredDocumentsInfo 
-      v-if="propertyType" 
-      :property-type="propertyType" 
+      v-if="propertyType"
+      :property-category="propertyType"
     />
 
     <!-- Tabela de Documentos -->
@@ -104,8 +104,9 @@ defineProps({
     type: Array,
     default: () => []
   },
+  // Aqui mantemos o nome propertyType por compatibilidade, mas agora aceitamos string de categoria
   propertyType: {
-    type: Number,
+    type: [Number, String],
     default: null
   },
   mode: {

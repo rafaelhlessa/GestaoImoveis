@@ -35,7 +35,13 @@ ChartJS.register(
 const { props } = usePage();
 
 // Props vindas do controller
-const valuationData = ref(props.valuationData || { urban: [], commercial: [], rural: [] });
+const valuationData = ref(props.valuationData || {
+    urban_residential: [],
+    urban_commercial: [],
+    urban_misto: [],
+    rural: [],
+    industrial: []
+});
 const stats = ref(props.stats || {});
 const properties = ref(props.properties || []);
 const recentEvaluations = ref(props.latestEvaluations || []);
@@ -62,11 +68,23 @@ if (props.auth.user.profiles && props.auth.user.profiles.includes('prestador')) 
 }
 });
 
+// Helper para acessar séries com segurança
+const series = (key) => {
+    const v = valuationData.value?.[key];
+    return Array.isArray(v) ? v : [];
+};
+
 // Dados para o gráfico de valorização principal
 const mainChartData = computed(() => {
     const allMonths = new Set();
 
-    [...valuationData.value.urban, ...valuationData.value.commercial, ...valuationData.value.rural]
+        [
+            ...series('urban_residential'),
+            ...series('urban_commercial'),
+            ...series('urban_misto'),
+            ...series('rural'),
+            ...series('industrial')
+        ]
         .forEach(item => allMonths.add(item.month));
 
     const sortedMonths = Array.from(allMonths).sort();
@@ -83,33 +101,51 @@ const mainChartData = computed(() => {
             return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         }),
         datasets: [
-            {
-                label: 'Propriedades Urbanas',
-                data: sortedMonths.map(month => getValueForMonth(valuationData.value.urban, month)),
-                borderColor: '#3B82F6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true,
-                tension: 0.4,
-                spanGaps: true
-            },
-            {
-                label: 'Propriedades Comerciais',
-                data: sortedMonths.map(month => getValueForMonth(valuationData.value.commercial, month)),
-                borderColor: '#10B981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                fill: true,
-                tension: 0.4,
-                spanGaps: true
-            },
-            {
-                label: 'Propriedades Rurais',
-                data: sortedMonths.map(month => getValueForMonth(valuationData.value.rural, month)),
-                borderColor: '#F59E0B',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                fill: true,
-                tension: 0.4,
-                spanGaps: true
-            }
+                        {
+                            label: 'Urbana - Residencial',
+                            data: sortedMonths.map(month => getValueForMonth(series('urban_residential'), month)),
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Urbana - Comercial',
+                            data: sortedMonths.map(month => getValueForMonth(series('urban_commercial'), month)),
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Urbana - Misto',
+                            data: sortedMonths.map(month => getValueForMonth(series('urban_misto'), month)),
+                            borderColor: '#8B5CF6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Rural',
+                            data: sortedMonths.map(month => getValueForMonth(series('rural'), month)),
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Industrial',
+                            data: sortedMonths.map(month => getValueForMonth(series('industrial'), month)),
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        }
         ]
     };
 });
@@ -117,19 +153,14 @@ const mainChartData = computed(() => {
 // Dados para o gráfico de distribuição por tipo
 const distributionChartData = computed(() => {
     const types = stats.value.propertiesByType || {};
+    const labels = Object.keys(types);
+    const data = labels.map(k => types[k] || 0);
+    const palette = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#06B6D4', '#F472B6'];
     return {
-        labels: ['Urbanas', 'Comerciais', 'Rurais'],
+        labels,
         datasets: [{
-            data: [
-                types.Urbanas || 0,
-                types.Comerciais || 0,
-                types.Rurais || 0
-            ],
-            backgroundColor: [
-                '#3B82F6',
-                '#10B981',
-                '#F59E0B'
-            ],
+            data,
+            backgroundColor: labels.map((_, i) => palette[i % palette.length]),
             borderWidth: 2,
             borderColor: '#fff'
         }]
@@ -289,11 +320,13 @@ const statuses = {
     neutral: 'text-blue-700 bg-blue-50 ring-blue-600/20',
 };
 
-// Verificar se há dados
+// Verificar se há dados (novas chaves e acesso seguro)
 const hasData = computed(() => {
-    return valuationData.value.urban.length > 0 ||
-           valuationData.value.commercial.length > 0 ||
-           valuationData.value.rural.length > 0;
+    return series('urban_residential').length > 0 ||
+           series('urban_commercial').length > 0 ||
+           series('urban_misto').length > 0 ||
+           series('rural').length > 0 ||
+           series('industrial').length > 0;
 });
 
 // Navegar para propriedade específica
@@ -496,27 +529,13 @@ const formatDateToBRManual = (dateString) => {
 
                         <!-- Resumo numérico -->
                         <div v-if="hasData" class="mt-6 space-y-3">
-                            <div class="flex items-center justify-between text-sm">
-                                <div class="flex items-center">
-                                    <div class="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
-                                    <span>Urbanas</span>
-                                </div>
-                                <span class="font-medium">{{ stats.propertiesByType?.Urbanas || 0 }}</span>
+                          <div v-for="(count, label, idx) in stats.propertiesByType" :key="label" class="flex items-center justify-between text-sm">
+                            <div class="flex items-center">
+                              <div class="w-3 h-3 rounded-full mr-2" :style="{ backgroundColor: ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444'][idx % 5] }"></div>
+                              <span>{{ label }}</span>
                             </div>
-                            <div class="flex items-center justify-between text-sm">
-                                <div class="flex items-center">
-                                    <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-                                    <span>Comerciais</span>
-                                </div>
-                                <span class="font-medium">{{ stats.propertiesByType?.Comerciais || 0 }}</span>
-                            </div>
-                            <div class="flex items-center justify-between text-sm">
-                                <div class="flex items-center">
-                                    <div class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
-                                    <span>Rurais</span>
-                                </div>
-                                <span class="font-medium">{{ stats.propertiesByType?.Rurais || 0 }}</span>
-                            </div>
+                            <span class="font-medium">{{ count }}</span>
+                          </div>
                         </div>
                     </div>
                 </div>

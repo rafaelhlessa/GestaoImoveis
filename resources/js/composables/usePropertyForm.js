@@ -40,7 +40,10 @@ export function usePropertyForm(props = {}) {
   // ====================================
   const form = useForm({
     is_active: initialData?.is_active ?? true,
+    // Compatibilidade: manter type_property; novo modelo usa property_category/subtype
     type_property: initialData?.type_property || null,
+    property_category: initialData?.property_category || null,
+    property_subtype: initialData?.property_subtype || null,
     title_deed: initialData?.title_deed || '',
     title_deed_number: initialData?.title_deed_number || '',
     other: initialData?.other || '',
@@ -781,8 +784,9 @@ const debugDataStructure = () => {
   const validateForm = () => {
     const errors = []
 
-    if (!form.type_property) {
-      errors.push('Tipo de propriedade é obrigatório')
+    // Nova validação: exige categoria
+    if (!form.property_category) {
+      errors.push('Categoria da propriedade é obrigatória')
     }
 
     if (!form.title_deed) {
@@ -866,6 +870,12 @@ const debugDataStructure = () => {
   // Determina proprietário principal (apenas usuários cadastrados)
   const registeredOwners = formattedOwners.filter(o => !!o.user_id)
   const mainOwner = registeredOwners.find(o => o.percentage === 100) || registeredOwners[0] || null
+
+    // Compatibilidade: se só categoria estiver definida, preenche type_property
+    if (!form.type_property && form.property_category) {
+      if (form.property_category === 'urban') form.type_property = 1
+      if (form.property_category === 'rural') form.type_property = 2
+    }
 
     // Atualiza formulário
     form.owners = formattedOwners
@@ -1009,6 +1019,12 @@ const debugDataStructure = () => {
     window.typeOwners = typeOwners.value
     window.usersData = allUsers.value
 
+    // Mapear categoria a partir de type_property se necessário
+    if (!form.property_category && form.type_property) {
+      if (Number(form.type_property) === 1) form.property_category = 'urban'
+      if (Number(form.type_property) === 2) form.property_category = 'rural'
+    }
+
     // Carrega cidades
     loadCities()
 
@@ -1025,6 +1041,13 @@ const debugDataStructure = () => {
 
   watch(() => form.city, (newCity) => {
     if (newCity) filterCities(newCity)
+  })
+
+  // Quando mudar a categoria, limpar subtipo se industrial
+  watch(() => form.property_category, (cat) => {
+    if (cat === 'industrial') {
+      form.property_subtype = null
+    }
   })
 
   // ====================================

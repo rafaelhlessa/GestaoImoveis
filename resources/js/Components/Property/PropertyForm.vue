@@ -189,7 +189,7 @@
                   <!-- Seção de Documentos -->
                   <DocumentsTable
                     :documents="documents"
-                    :property-type="form.type_property"
+                    :property-type="form.property_category || form.type_property"
                     :mode="isEditMode ? 'edit' : 'create'"
                     @add-document="showModalDocument = true"
                     @remove-document="removeDocument"

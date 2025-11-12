@@ -85,6 +85,18 @@ class StorePropertyRequest extends FormRequest
                 'owner_id' => $this->user()->id,
             ]);
         }
+
+        // Compatibilidade: se vier somente type_property (1,2), defina property_category
+        $type = (int) $this->input('type_property');
+        $category = $this->input('property_category');
+        if (!$category && $type) {
+            $mapped = null;
+            if ($type === 1) { $mapped = 'urban'; }
+            if ($type === 2) { $mapped = 'rural'; }
+            if ($mapped) {
+                $this->merge(['property_category' => $mapped]);
+            }
+        }
     }
 
     /**
@@ -99,11 +111,14 @@ class StorePropertyRequest extends FormRequest
             'is_active' => 'boolean',
             'title_deed' => ['required', 'integer'],
             'title_deed_number' => 'nullable|string|max:100',
-            'type_property' => ['required', 'integer'],
+            // Mantemos type_property por compatibilidade (1=Urbana, 2=Rural)
+            'type_property' => ['nullable', 'integer'],
+            // Novos campos
+            'property_category' => ['nullable', 'in:urban,rural,industrial'],
+            'property_subtype' => ['nullable', 'in:residencial,comercial,misto'],
             'other' => 'nullable|string|max:255',
             'area' => 'nullable|numeric|min:0',
             'unit' => 'nullable|string|max:50',
-            'type_property' => 'nullable|integer|max:100',
             'address' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
             'city_id' => 'nullable|integer',
